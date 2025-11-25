@@ -25,6 +25,10 @@ public:
 	void Unbind() const;
 
 private:
+	std::string ConvertSPIRVToGLSL(
+		const std::vector<uint8_t>& spirvBytes,
+		bool isVertexShader
+	);
 	void ParseShader(const std::string& filepath);
 	uint32_t CompileShader(uint32_t type, const std::string& source);
 	uint32_t CreateShader(const std::string& vertexGLSLShader, const std::string& fragmentGLSLShader);

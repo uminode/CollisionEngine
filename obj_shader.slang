@@ -1,9 +1,5 @@
 import common;
 
-// Resources
-[[vk::binding(0, 0)]]
-SamplerCube TextureSampler;
-
 // =======================
 // Vertex Shader
 // =======================
@@ -20,9 +16,6 @@ VSOutput vertexMain(VSInput input)
 
     // Normal
     output.Normal = mul(normalize(input.normal), normalModel);
-
-    // Pass texcoords (using position here)
-    output.TexCoords = input.position;
 
     return output;
 }
@@ -43,10 +36,6 @@ float4 fragmentMain(VSOutput input) : SV_Target
     float diff = saturate(dot(norm, lightDir));
     float3 diffuse = diff * LightColor;
 
-    // Cubemap sample
-    // float4 tex = TextureSampler.Sample(Sampler, input.TexCoords);
-    float4 tex = TextureSampler.Sample(input.TexCoords);
-
     // Specular
     float specularStrength = 0.5;
     float3 viewDir = normalize(cameraPosition - input.FragPos);
@@ -54,15 +43,7 @@ float4 fragmentMain(VSOutput input) : SV_Target
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);
     float3 specular = specularStrength * spec * LightColor;
 
-    float4 result;
-    if (isTexture == 1)
-    {
-        result = (float4(ambient, 1.0) + float4(diffuse, 1.0) + float4(specular, 1.0)) * u_Color;
-    }
-    else
-    {
-        result = ((float4(ambient, 1.0) + float4(diffuse, 1.0)) * tex + float4(specular, 1.0)) * u_Color;
-    }
+    float4 result = (float4(ambient, 1.0) + float4(diffuse, 1.0) + float4(specular, 1.0)) * u_Color;
 
     result.a = u_Color.a;
     return result;

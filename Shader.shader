@@ -39,6 +39,7 @@ layout (std140, binding = 1) uniform Light {
 layout (std140, binding = 2) uniform Camera {
 	vec3 lightPosition;
 	vec3 u_vPos;
+};
 //uniform vec3 u_Light;
 //uniform vec3 u_vPos;
 //uniform vec4 u_Color;

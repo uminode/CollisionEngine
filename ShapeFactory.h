@@ -57,14 +57,14 @@ private:
 	void InitCylinderIndices();
 	void AddCircleIndices(std::array<uint32_t, 3 * 4 * CIRCLE_TRIANGLE_NUM> &indices, int index, int offset = 0);
 
-	Shape CreateShapeObject(float* element, int elementSize, int shapeType, float x0, float y0, float z0, float d);
+	Shape& CreateShapeObject(float* element, int elementSize, int shapeType, float x0, float y0, float z0, float d);
 	
 	//functions that create shapes
 	float* CreateCircle(float x, float y, float z, float radius);
-	Shape CreateCube(float x0, float y0, float z0, float size);
-	Shape CreateSphere(float x0, float y0, float z0, float radius);
-	Shape CreateCylinder(float x, float y, float z, float radius, float height);
-	Shape CreateRing(float x0, float y0, float z0, float r1, float r2);
+	Shape& CreateCube(float x0, float y0, float z0, float size);
+	Shape& CreateSphere(float x0, float y0, float z0, float radius);
+	Shape& CreateCylinder(float x, float y, float z, float radius, float height);
+	Shape& CreateRing(float x0, float y0, float z0, float r1, float r2);
 
 	int RandomInt(int min, int max); // DEBUG: Move to another class
 	float RandomFloat(float min, float max); // and this
@@ -74,14 +74,14 @@ public:
 	void setRenderer(OpenGLRenderer* rend);
 	void InitPrototypes();
 
-	int GetIndexPointerSize(int shapeType);
+	uint32_t GetIndexPointerSize(uint32_t shapeType);
 	int32_t GetNormalPointerSize(int32_t shapeType);
 	float* GetNormals(int shapeType);
 
-	void BindShape(Shape shape); // Move to Renderer Class
+	void BindShape(const Shape& shape); // Move to Renderer Class
 
-	Shape CreateRandomShape(float x = 0.f, float y = 0.f, float z = 0.f);
-	Shape CreateShape(float x, float y, float z, int size, int ShapeType);
+	Shape& CreateRandomShape(float x = 0.f, float y = 0.f, float z = 0.f);
+	Shape& CreateShape(float x, float y, float z, int size, int ShapeType);
 
 	// Color handlers, DEBUG: Move to another class
 	void SetRandomColor(Shape& shape, float alpha_value = 1.0f);

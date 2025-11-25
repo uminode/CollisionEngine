@@ -122,14 +122,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>GLEW_STATIC;SLANG_STATIC</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\Code;D:\Documents\GitHub\Lab1-Graphics\Dependencies\Code\slang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\Code;$(SolutionDir)Dependencies\Code\slang</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\Libraries;D:\Documents\GitHub\Lab1-Graphics\Dependencies\Libraries\slang</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;user32.lib;gdi32.lib;shell32.lib;glew32s.lib;Winmm.lib;slang.lib;winmm.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\Libraries;$(SolutionDir)Dependencies\Libraries\slang</AdditionalLibraryDirectories>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;user32.lib;gdi32.lib;shell32.lib;glew32s.lib;Winmm.lib;slang.lib;spirv-cross-core.lib;spirv-cross-glsl.lib;winmm.lib</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>
@@ -147,7 +147,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>GLEW_STATIC;SLANG_STATIC</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\Code;D:\Documents\GitHub\Lab1-Graphics\Dependencies\Code\slang</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Dependencies\Code;$(SolutionDir)Dependencies\Code\slang</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
@@ -155,8 +155,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\Libraries;D:\Documents\GitHub\Lab1-Graphics\Dependencies\Libraries\slang</AdditionalLibraryDirectories>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;user32.lib;gdi32.lib;shell32.lib;glew32s.lib;Winmm.lib;slang.lib;</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\Libraries;$(SolutionDir)Dependencies\Libraries\slang</AdditionalLibraryDirectories>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;user32.lib;gdi32.lib;shell32.lib;glew32s.lib;Winmm.lib;slang.lib;spirv-cross-corer.lib;spirv-cross-glslr.lib</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>
@@ -193,11 +193,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="batch_common.slang" />
+    <None Include="batch_shader.frag" />
     <None Include="batch_shader.slang" />
+    <None Include="batch_shader.vert" />
     <None Include="common.slang" />
     <None Include="obj_shader.frag" />
     <None Include="obj_shader.slang" />
     <None Include="obj_shader.vert" />
+    <None Include="obj_tex_shader.slang" />
     <None Include="Shader.shader" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

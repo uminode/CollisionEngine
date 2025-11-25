@@ -5,8 +5,24 @@ GLFW\include\GLFW\
 glm\glm\
 glew\include\GL\
 slang\include\
+spirv_cross\ that includes:
+	GLSL.std.450.h
+	spirv.hpp
+	spirv_cfg.hpp
+	spirv_common.hpp
+	spirv_cross.hpp
+	spirv_cross_containers.hpp
+	spirv_cross_error_handling.hpp
+	spirv_cross_parsed_ir.hpp
+	spirv_glsl.hpp
+	spirv_parser.hpp
+from spirv-cross (repository: https://github.com/KhronosGroup/SPIRV-Cross/)
 
 slang library (repository: https://github.com/shader-slang/slang)
+
+--------------- Note: --------------- 
+for now we need spirv-cross compiled(clone for repo, run CMake -B build) for debug and release as release versions are from 08/2021.
+I don't think I can provide compiled binaries here, so you need to compile them by yourself until I find a better solution.
 
 
 Dependencies\Libraries
@@ -15,10 +31,21 @@ GLFW\lib-vc2019\glfw3.lib
 glew\lib\Release\x64\glew32s.lib
 slang libraries folder that contains slang.lib & gfx.lib
 
+spirv-cross-core.lib is the debug compiled version of spirv-cross
+spirv-cross-core.pdb
+spirv-cross-glsl.lib is the debug compiled version of spirv-cross-glsl
+spirv-cross-glsl.pdb
+
+spirv-cross-corer.lib is the release compiled version of spirv-cross
+spirv-cross-glslr.lib is the release compiled version of spirv-cross-glsl
+
+if you miss one of the two sets of files required will break the respective build. 
+
 Dependencies\Binaries
 slang folder: gfx.dll, gfx.slang, slang.dll, slang-slang, slang-glslang.dll, slang-glsl-module.dll
 
 Properties
+This is deprecated. I've included the vcxproj file that contains everything needed 
 C	preprocessor -> GLEW_STATIC
 C	general -> $(SolutionDir)Dependencies\Code
 Linker	general -> $(SolutionDir)Dependencies\Libraries

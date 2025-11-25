@@ -50,12 +50,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="DynamicShapeArray.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="GLSLShader.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="CameraController.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -83,11 +77,14 @@
     <ClInclude Include="ShaderCompiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GLSLShader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DynamicShapeArray.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Shader.shader">
-      <Filter>Source Files</Filter>
-    </None>
     <None Include="common.slang">
       <Filter>Source Files\Shaders</Filter>
     </None>
@@ -104,6 +101,18 @@
       <Filter>Source Files\Shaders</Filter>
     </None>
     <None Include="batch_shader.slang">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="Shader.shader">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="batch_shader.vert">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="batch_shader.frag">
+      <Filter>Source Files\Shaders</Filter>
+    </None>
+    <None Include="obj_tex_shader.slang">
       <Filter>Source Files\Shaders</Filter>
     </None>
   </ItemGroup>

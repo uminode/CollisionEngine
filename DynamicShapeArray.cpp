@@ -68,10 +68,13 @@ DynamicShapeArray::DynamicShapeArray() {
 }
 
 DynamicShapeArray::~DynamicShapeArray() {
+	for (uint64_t i = 0; i < shapeArray.size(); ++i) {
+		delete shapeArray[i];
+	}
 }
 
 void DynamicShapeArray::CreateRandomShape() {
-	AddShape(shapeFactory->CreateRandomShape());
+	AddShape(&shapeFactory->CreateRandomShape());
 	std::cout << " Shape amount:" << size << std::endl;
 }
 
@@ -85,7 +88,7 @@ void DynamicShapeArray::CreateRandomShapes(int amount) {
 				px = i * 100.f / perAxis;
 				py = j * 100.f / perAxis;
 				pz = k * 100.f / perAxis;
-				AddShape(shapeFactory->CreateRandomShape(px, py, pz));
+				AddShape(&shapeFactory->CreateRandomShape(px, py, pz));
 			}
 		}
 	}
@@ -96,7 +99,8 @@ Shape Creator
 -creates new shape to add to the Array
 */
 void DynamicShapeArray::CreateShape(float x, float y, float z, int elementSize, int ShapeType) {
-	AddShape(shapeFactory->CreateShape(x, y, z, elementSize, ShapeType));
+	Shape* newShape = &shapeFactory->CreateShape(x, y, z, elementSize, ShapeType);
+	AddShape(newShape);
 }
 void DynamicShapeArray::InitFactoryPrototypes()
 {
@@ -105,19 +109,19 @@ void DynamicShapeArray::InitFactoryPrototypes()
 
 
 //Adds a shape to shapeArray
-void DynamicShapeArray::AddShape(Shape shape) {
+void DynamicShapeArray::AddShape(Shape *shape) {
 	shapeArray.push_back(shape);
-	shapeTypeArray.at(shape.shapeType).push_back(shape);
+	shapeTypeArray.at(shape->shapeType).push_back(shapeArray.back()); // TODO: every time shapeArray resizes we lose the pointers.
 	size++;
 }
 
 
 void DynamicShapeArray::SetRandomColor(int index, float alpha_value) {
-	shapeFactory->SetRandomColor(shapeArray[index], alpha_value);
+	shapeFactory->SetRandomColor(*shapeArray[index], alpha_value);
 }
 
 void DynamicShapeArray::SetColor(int index, float r_value, float g_value, float b_value, float alpha_value) {
-	shapeFactory->SetColor(shapeArray[index], r_value, g_value, b_value, alpha_value);
+	shapeFactory->SetColor(*shapeArray[index], r_value, g_value, b_value, alpha_value);
 }
 void DynamicShapeArray::setRenderer(OpenGLRenderer* renderer) {
 	shapeFactory->setRenderer(renderer);
@@ -125,49 +129,69 @@ void DynamicShapeArray::setRenderer(OpenGLRenderer* renderer) {
 
 float* DynamicShapeArray::GetColor(int index) {
 	if (index < size) {
-		return shapeFactory->GetColor(shapeArray[index]);
+		return shapeFactory->GetColor(*shapeArray[index]);
 	}
 	else return nullptr;
 }
 
-int DynamicShapeArray::GetIndexPointerSize(int index) {
-	return shapeFactory->GetIndexPointerSize(shapeArray[index].shapeType);
+uint32_t DynamicShapeArray::GetIndexPointerSize(uint32_t shapeType) {
+	return shapeFactory->GetIndexPointerSize(shapeType);
 }
 
 float* DynamicShapeArray::GetNormals(int shapeType) {
 	return shapeFactory->GetNormals(shapeType);
 }
 
-/*
-Buffer Binder
-- binds shape's vao and ibo
-- created mainly because it removes 2-3 Getters/Setters
-*/
 void DynamicShapeArray::BindShape(int index) {
-	shapeFactory->BindShape(shapeArray[index]);
+	shapeFactory->BindShape(*shapeArray[index]);
 }
 
-
-//movement
-/*
-*Shape Mover
-- moves the shape at index by changing its model matrix
-- and center pos
-*/
 void DynamicShapeArray::Move(int index) {
-	float* speed = shapeArray[index].speed;
+	Shape& shape = *shapeArray[index];
+	float* speed = shape.speed;
 	if (speed[0] || speed[1] || speed[2]) {
 		CheckCollision(index);
-		shapeArray[index].matrices.model = glm::translate(glm::mat4{1.f}, glm::vec3(speed[0] * (speedUP * globalSpeed), speed[1] * (speedUP * globalSpeed), speed[2] * (speedUP * globalSpeed))) * shapeArray[index].matrices.model;
-		shapeArray[index].matrices.normalModel = glm::transpose(glm::inverse(shapeArray[index].matrices.model));
-		shapeArray[index].center[0] += speed[0] * (speedUP * globalSpeed);
-		shapeArray[index].center[1] += speed[1] * (speedUP * globalSpeed);
-		shapeArray[index].center[2] += speed[2] * (speedUP * globalSpeed);
+		shape.matrices.model = glm::translate(glm::mat4{1.f}, glm::vec3(speed[0] * (speedUP * globalSpeed), speed[1] * (speedUP * globalSpeed), speed[2] * (speedUP * globalSpeed))) * shape.matrices.model;
+		shape.matrices.normalModel = glm::mat3x4{ glm::transpose(glm::inverse(shape.matrices.model)) };
+		shape.center[0] += speed[0] * (speedUP * globalSpeed);
+		shape.center[1] += speed[1] * (speedUP * globalSpeed);
+		shape.center[2] += speed[2] * (speedUP * globalSpeed);
 	}
 }
+void DynamicShapeArray::Move(int index, glm::mat4 view, glm::mat4& projection) {
+	Move(index);
+	shapeArray[index]->matrices.mvp = projection * view * shapeArray[index]->matrices.model;
+}
 void DynamicShapeArray::MoveAll() {
+	// Still i = 2 because first 2 shapes are immovable (cube and sphere)
 	for (int i = 2; i < size; i++) {
 		Move(i);
+	}
+}
+void DynamicShapeArray::MoveAll(glm::mat4 view, glm::mat4& projection) {
+	// Still i = 2 because first 2 shapes are immovable (cube and sphere)
+	for (int i = 2; i < size; i++) {
+		Move(i, view, projection);
+	}
+}
+
+void DynamicShapeArray::uploadMatricesToPtr(int shapeType, uint16_t type, void* ptr) {
+	objMatrices* matricesPtr = static_cast<objMatrices*>(ptr);
+	for (uint64_t i = 0; i < shapeTypeArray[shapeType].size(); ++i) {
+		Shape* shape = shapeTypeArray[shapeType][i];
+		matricesPtr[i].mvp = shape->matrices.mvp;
+		matricesPtr[i].model = shape->matrices.model;
+		matricesPtr[i].normalModel = shape->matrices.normalModel;
+	}
+}
+void DynamicShapeArray::uploadColorsToPtr(int shapeType, uint16_t type, void* ptr) {
+	float* colorsPtr = static_cast<float*>(ptr);
+	for (uint64_t i = 0; i < shapeTypeArray[shapeType].size(); ++i) {
+		Shape* shape = shapeTypeArray[shapeType][i];
+		colorsPtr[i * 4 + 0] = shape->color[0];
+		colorsPtr[i * 4 + 1] = shape->color[1];
+		colorsPtr[i * 4 + 2] = shape->color[2];
+		colorsPtr[i * 4 + 3] = shape->color[3];
 	}
 }
 
@@ -178,19 +202,20 @@ void DynamicShapeArray::MoveAll() {
 
 void DynamicShapeArray::MoveSphere(int index, glm::vec3 speed)
 {
-	int next_center[3] = { shapeArray[index].center[0] + speed[0],
-	shapeArray[index].center[1] + speed[1],
-	shapeArray[index].center[2] + speed[2]};
+	Shape& shape = *shapeArray[index];
+	int next_center[3] = { shape.center[0] + speed[0],
+	shape.center[1] + speed[1],
+	shape.center[2] + speed[2]};
 
-	float upper_limit = 100.0f - shapeArray[index].d / 2;
-	float lower_limit = 0 + shapeArray[index].d / 2;
+	float upper_limit = 100.0f - shape.d / 2;
+	float lower_limit = 0 + shape.d / 2;
 	CheckCollision(index);
 	if (next_center[0] > upper_limit || next_center[1] > upper_limit || next_center[2] > upper_limit || next_center[0] < lower_limit || next_center[1] < lower_limit || next_center[2] < lower_limit)
 		return;
-	shapeArray[index].matrices.model = glm::translate(glm::mat4(1.0f), speed) * shapeArray[index].matrices.model;
-	shapeArray[index].center[0] = next_center[0];
-	shapeArray[index].center[1] = next_center[1];
-	shapeArray[index].center[2] = next_center[2];
+	shape.matrices.model = glm::translate(glm::mat4(1.0f), speed) * shape.matrices.model;
+	shape.center[0] = next_center[0];
+	shape.center[1] = next_center[1];
+	shape.center[2] = next_center[2];
 }
 
 /*
@@ -220,43 +245,49 @@ void DynamicShapeArray::CheckCollision(int index) {
 		return;
 	}
 	bool hasCollision;
-	float bigPos[] = { shapeArray[index].center[0] + shapeArray[index].speed[0],
-		shapeArray[index].center[1] + shapeArray[index].speed[1],
-		shapeArray[index].center[2] + shapeArray[index].speed[2] };
+	Shape& shapeInd = *shapeArray[index];
+	float bigPos[] = { shapeInd.center[0] + shapeInd.speed[0],
+		shapeInd.center[1] + shapeInd.speed[1],
+		shapeInd.center[2] + shapeInd.speed[2] };
 	float nextPos1[3];
 
 	float* pos, * pos1;
-	int shapeType = shapeArray[index].shapeType, j, s;
-	float dsqr, dx, dy, dz, size0 = shapeArray[index].d, size1;
+	int shapeType = shapeInd.shapeType, j, s;
+	float dsqr, dx, dy, dz, size0 = shapeInd.d, size1;
 	for (int i = 0; i < size; i++) {
 		hasCollision = false;
 		j = index;
 		s = i;
-		nextPos1[0] = shapeArray[i].center[0] + shapeArray[i].speed[0];
-		nextPos1[1] = shapeArray[i].center[1] + shapeArray[i].speed[1];
-		nextPos1[2] = shapeArray[i].center[2] + shapeArray[i].speed[2];
+		Shape shapeI = *shapeArray[i];
+		Shape shapeJ = *shapeArray[j];
+		nextPos1[0] = shapeI.center[0] + shapeI.speed[0];
+		nextPos1[1] = shapeI.center[1] + shapeI.speed[1];
+		nextPos1[2] = shapeI.center[2] + shapeI.speed[2];
 		pos = bigPos;
 		pos1 = nextPos1;
 		if (i == index)
 			continue;
-		if (shapeArray[j].shapeType == T_RING || shapeArray[j].shapeType == T_SPHERE || (shapeArray[s].shapeType == T_CUBE && shapeArray[j].shapeType == T_CYLINDER)) {
+		if (shapeJ.shapeType == T_RING || shapeJ.shapeType == T_SPHERE || (shapeI.shapeType == T_CUBE && shapeJ.shapeType == T_CYLINDER)) {
+			Shape temp = shapeI;
+			shapeI = shapeJ;
+			shapeJ = temp;
 			j = i;
 			s = index;
 			pos1 = bigPos;
 			pos = nextPos1;
 		}
-		shapeType = shapeArray[j].shapeType;
-		size0 = shapeArray[s].d;
-		size1 = shapeArray[j].d;
+		shapeType = shapeJ.shapeType;
+		size0 = shapeI.d;
+		size1 = shapeJ.d;
 		dx = abs(pos[0] - pos1[0]);
 		dy = abs(pos[1] - pos1[1]);
 		dz = abs(pos[2] - pos1[2]);
-		if (shapeArray[s].shapeType == T_SPHERE) {
-			if (shapeArray[j].shapeType == T_SPHERE) {
+		if (shapeI.shapeType == T_SPHERE) {
+			if (shapeJ.shapeType == T_SPHERE) {
 				dsqr = dx * dx + dy * dy + dz * dz;
 				hasCollision = (dsqr <= (size0 / 2 + size1 / 2) * (size0 / 2 + size1 / 2)) && (dsqr >= size1 * size1 / 4);
 			}
-			else if (shapeArray[j].shapeType == T_CUBE) {
+			else if (shapeJ.shapeType == T_CUBE) {
 
 				if (dx >= (size1 / 2 + size0 / 2)) { hasCollision = false; }
 				else if (dy >= (size1 / 2 + size0 / 2)) { hasCollision = false; }
@@ -275,7 +306,7 @@ void DynamicShapeArray::CheckCollision(int index) {
 				}
 
 			}
-			else if (shapeArray[j].shapeType == T_CYLINDER) {
+			else if (shapeJ.shapeType == T_CYLINDER) {
 				dsqr = dx * dx + dz * dz;
 
 				if (dx > (size1 / 2 + size0 / 2)) { hasCollision = false; }
@@ -288,14 +319,14 @@ void DynamicShapeArray::CheckCollision(int index) {
 				}
 			}
 		}
-		else if (shapeArray[s].shapeType == T_CUBE) {
-			if (shapeArray[j].shapeType == T_CUBE) {
+		else if (shapeI.shapeType == T_CUBE) {
+			if (shapeJ.shapeType == T_CUBE) {
 				hasCollision = dx <= size1 / 2 + size0 / 2 && dy <= size1 / 2 + size0 / 2 && dz <= size1 / 2 + size0 / 2 && (dx >= abs(size1 - size0) / 2 || dy >= abs(size1 - size0) / 2 || dz >= abs(size1 - size0) / 2);
 
 			}
 		}
-		else if (shapeArray[s].shapeType == T_CYLINDER) {
-			if (shapeArray[j].shapeType == T_CUBE) {
+		else if (shapeI.shapeType == T_CYLINDER) {
+			if (shapeJ.shapeType == T_CUBE) {
 				if (dx >= (size1 / 2 + size0 / 2)) { hasCollision = false; }
 				else if (dy >= (size1 / 2 + size0 / 2)) { hasCollision = false; }
 				else if (dz >= (size1 / 2 + size0 / 2)) { hasCollision = false; }
@@ -312,7 +343,7 @@ void DynamicShapeArray::CheckCollision(int index) {
 					hasCollision = (cornerDistance_sq < (size0* size0 / 2));
 				}
 			}
-			else if (shapeArray[j].shapeType == T_CYLINDER) {
+			else if (shapeJ.shapeType == T_CYLINDER) {
 				dsqr = dx * dx + dz * dz;
 				if (dsqr > (size1 / 2 + size0 / 2) * (size1 / 2 + size0 / 2)) { hasCollision = false; }
 				else if (dy >= (size1 / 2 + size0 / 2)) { hasCollision = false; }
@@ -323,10 +354,10 @@ void DynamicShapeArray::CheckCollision(int index) {
 				}
 			}
 		}
-		else if (shapeArray[s].shapeType == T_RING) {
-			float size00 = shapeArray[s].d2, radi = size0 - (2 * size00), radB = size0;
+		else if (shapeI.shapeType == T_RING) {
+			float size00 = shapeI.d2, radi = size0 - (2 * size00), radB = size0;
 
-			if (shapeArray[j].shapeType == T_CUBE) {
+			if (shapeJ.shapeType == T_CUBE) {
 				if (dx >= (size1 / 2 + size0)) { hasCollision = false; }
 				else if (dy >= (size1 / 2 + size0)) { hasCollision = false; }
 				else if (dz >= (size1 / 2 + size0)) { hasCollision = false; }
@@ -344,10 +375,10 @@ void DynamicShapeArray::CheckCollision(int index) {
 				}
 
 			}
-			else if (shapeArray[j].shapeType == T_CYLINDER) {
+			else if (shapeJ.shapeType == T_CYLINDER) {
 				hasCollision = false;
 			}
-			else if (shapeArray[j].shapeType == T_SPHERE) {
+			else if (shapeJ.shapeType == T_SPHERE) {
 				dsqr = dx * dx + dz * dz;
 
 				if (dx > (size1 / 2 + size0)) { hasCollision = false; }
@@ -359,7 +390,7 @@ void DynamicShapeArray::CheckCollision(int index) {
 					hasCollision = (dsqr <= (size0 / 2 + SQRT_2 * size1 / 2) * (size0 / 2 + SQRT_2 * size1 / 2));
 				}
 			}
-			else if (shapeArray[j].shapeType == T_RING) {
+			else if (shapeJ.shapeType == T_RING) {
 				hasCollision = false;
 			}
 		}
@@ -381,15 +412,17 @@ void DynamicShapeArray::CheckCollision(int index) {
 -changes the speeds of the shapes in a collision
 */
 void DynamicShapeArray::Collide(int index1, int index2) {
-	if (shapeArray[index2].speed[0] == 0 && shapeArray[index2].speed[1] == 0 && shapeArray[index2].speed[2] == 0) {
+	Shape& shape1 = *shapeArray[index1];
+	Shape& shape2 = *shapeArray[index2];
+	if (shape2.speed[0] == 0 && shape2.speed[1] == 0 && shape2.speed[2] == 0) {
 		return;
 	}
 
-	int shapeType2 = shapeArray[index2].shapeType;
-	int shapeType1 = shapeArray[index1].shapeType;
-	float* pos = shapeArray[index1].center;
-	float* pos1 = shapeArray[index2].center;
-	glm::vec3 speed(shapeArray[index2].speed[0], shapeArray[index2].speed[1], shapeArray[index2].speed[2]);
+	int shapeType2 = shape2.shapeType;
+	int shapeType1 = shape1.shapeType;
+	float* pos = shape1.center;
+	float* pos1 = shape2.center;
+	glm::vec3 speed(shape2.speed[0], shape2.speed[1], shape2.speed[2]);
 	glm::vec3 Tspeed(0.0f, 0.0f, 0.0f);
 	float dx = pos[0] - pos1[0];
 	float dy = pos[1] - pos1[1];
@@ -403,9 +436,9 @@ void DynamicShapeArray::Collide(int index1, int index2) {
 
 		speed = glm::length(speed) * normalize((-centerToCenter) * glm::dot(Tspeed, centerToCenter));
 
-		shapeArray[index2].speed[0] = speed[0];
-		shapeArray[index2].speed[1] = speed[1];
-		shapeArray[index2].speed[2] = speed[2];
+		shape2.speed[0] = speed[0];
+		shape2.speed[1] = speed[1];
+		shape2.speed[2] = speed[2];
 	}
 	if (shapeType1 == T_CUBE) {
 		glm::vec3 X(1.0f, 0.0f, 0.0f);
@@ -422,11 +455,11 @@ void DynamicShapeArray::Collide(int index1, int index2) {
 		glm::vec3 M;
 
 		if (m == abs(dists[0])) {
-			shapeArray[index2].speed[0] = -speed[0];
+			shape2.speed[0] = -speed[0];
 		}if (m == abs(dists[1])) {
-			shapeArray[index2].speed[1] = -speed[1];
+			shape2.speed[1] = -speed[1];
 		}if (m == abs(dists[2])) {
-			shapeArray[index2].speed[2] = -speed[2];
+			shape2.speed[2] = -speed[2];
 		}
 	}
 	if (shapeType1 == T_CYLINDER) {
@@ -435,8 +468,8 @@ void DynamicShapeArray::Collide(int index1, int index2) {
 		glm::vec3 Z(0.0f, 0.0f, 1.0f);
 
 		glm::vec3 centerToCenter(dx, dy, dz);
-		float size1 = shapeArray[index1].size / 2;
-		float size2 = shapeArray[index2].size / 2;
+		float size1 = shape1.size / 2;
+		float size2 = shape2.size / 2;
 		Tspeed = glm::normalize(speed);
 		centerToCenter = glm::normalize(centerToCenter);
 		glm::vec3 ctc2(centerToCenter[0], 0, centerToCenter[2]);
@@ -447,14 +480,14 @@ void DynamicShapeArray::Collide(int index1, int index2) {
 		glm::vec3 M;
 
 		if ((dists[1] >= SQRT_2 / 2 && dists[1] < 1) || (dists[1] <= -SQRT_2 / 2 && dists[1] > -1)) {
-			shapeArray[index2].speed[1] = -speed[1];
+			shape2.speed[1] = -speed[1];
 
 		}
 		else if (dy < size1) {
 
 			Tspeed = glm::length(speed) * normalize((-centerToCenter) * glm::dot(Tspeed, centerToCenter));
-			shapeArray[index2].speed[0] = Tspeed[0];
-			shapeArray[index2].speed[2] = Tspeed[2];
+			shape2.speed[0] = Tspeed[0];
+			shape2.speed[2] = Tspeed[2];
 		}
 	}
 	if (shapeType1 == T_RING) {
@@ -462,13 +495,13 @@ void DynamicShapeArray::Collide(int index1, int index2) {
 		glm::vec3 Y(0.0f, 1.0f, 0.0f);
 		glm::vec3 Z(0.0f, 0.0f, 1.0f);
 
-		float s1 = shapeArray[index1].d;
-		float s2 = shapeArray[index1].d2;
+		float s1 = shape1.d;
+		float s2 = shape1.d2;
 
 
 		glm::vec3 centerToCenter(dx - s1 - s2, dy, dz - s1 - s2);
-		float size1 = shapeArray[index1].size / 2;
-		float size2 = shapeArray[index2].size / 2;
+		float size1 = shape1.size / 2;
+		float size2 = shape2.size / 2;
 		Tspeed = glm::normalize(speed);
 		centerToCenter = glm::normalize(centerToCenter);
 		glm::vec3 ctc2(centerToCenter[0], 0, centerToCenter[2]);
@@ -479,15 +512,15 @@ void DynamicShapeArray::Collide(int index1, int index2) {
 		glm::vec3 M;
 
 		if ((dists[1] >= SQRT_2 / 2 && dists[1] < 1) || (dists[1] <= -SQRT_2 / 2 && dists[1] > -1)) {
-			shapeArray[index2].speed[1] = -speed[1];
+			shape2.speed[1] = -speed[1];
 
 		}
 		else if (dy < size1) {
 
 			Tspeed = glm::length(speed) * normalize((-centerToCenter) * glm::dot(Tspeed, centerToCenter));
-			shapeArray[index2].speed[1] = Tspeed[1];
-			shapeArray[index2].speed[0] = Tspeed[0];
-			shapeArray[index2].speed[2] = Tspeed[2];
+			shape2.speed[1] = Tspeed[1];
+			shape2.speed[0] = Tspeed[0];
+			shape2.speed[2] = Tspeed[2];
 		}
 	}
 }

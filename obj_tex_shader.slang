@@ -1,21 +1,29 @@
-import batch_common;
+import common;
 
+// Resources
+[[vk::binding(0, 0)]]
+SamplerCube TextureSampler;
+
+// =======================
+// Vertex Shader
+// =======================
 [shader("vertex")]
 VSOutput vertexMain(VSInput input)
 {
     VSOutput output;
-    uint index = input.instanceID + input.baseInstance;
 
     // Clip-space position
-    output.position = mul(float4(input.position, 1.0), matrices[index].u_MVP);
+    output.position = mul(float4(input.position, 1.0), u_MVP);
 
     // World-space fragment position
-    output.FragPos = mul(float4(input.position, 1.0), matrices[index].model).xyz;
+    output.FragPos = mul(float4(input.position, 1.0), model).xyz;
 
     // Normal
-    output.Normal = mul(normalize(input.normal), matrices[index].normalModel);
+    output.Normal = mul(normalize(input.normal), normalModel);
 
-    output.instanceID = index;
+    // Pass texcoords (using position here)
+    output.TexCoords = input.position;
+
     return output;
 }
 
@@ -25,7 +33,6 @@ VSOutput vertexMain(VSInput input)
 [shader("fragment")]
 float4 fragmentMain(VSOutput input) : SV_Target
 {
-    uint index = input.instanceID;
     // Light properties
     float3 LightColor = float3(1.0, 1.0, 1.0);
     float3 ambient    = float3(0.2, 0.2, 0.16);
@@ -33,18 +40,22 @@ float4 fragmentMain(VSOutput input) : SV_Target
     // Diffuse
     float3 norm = normalize(input.Normal);
     float3 lightDir = normalize(lightPosition - input.FragPos);
+    float diff = saturate(dot(norm, lightDir));
+    float3 diffuse = diff * LightColor;
+
+    // Cubemap sample
+    // float4 tex = TextureSampler.Sample(Sampler, input.TexCoords);
+    float4 tex = TextureSampler.Sample(input.TexCoords);
 
     // Specular
     float specularStrength = 0.5;
     float3 viewDir = normalize(cameraPosition - input.FragPos);
     float3 reflectDir = reflect(-lightDir, norm);
-    float diff = saturate(dot(norm, lightDir));
-    float3 diffuse = diff * LightColor;
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);
     float3 specular = specularStrength * spec * LightColor;
 
-    float4 color = colors[index];
-    float4 result = (float4(ambient, 1.0) + float4(diffuse, 1.0) + float4(specular, 1.0)) * colors[index];
+    float4 result = ((float4(ambient, 1.0) + float4(diffuse, 1.0)) * tex + float4(specular, 1.0)) * u_Color;
 
+    result.a = u_Color.a;
     return result;
 }

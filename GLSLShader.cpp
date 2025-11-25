@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <GL/glew.h>
+#include <spirv_cross/spirv_glsl.hpp>
 
 std::vector<uint8_t> ReadSPIRV(const std::string& filename) {
 	std::ifstream file(filename, std::ios::in | std::ios::binary);
@@ -21,7 +22,76 @@ std::vector<uint8_t> ReadSPIRV(const std::string& filename) {
 
 	return spirvData;
 }
+std::string GLSLShader::ConvertSPIRVToGLSL(
+	const std::vector<uint8_t>& spirvBytes,
+	bool isVertexShader
+) {
+	// Validate SPIR-V size
+	if (spirvBytes.empty() || spirvBytes.size() % 4 != 0) {
+		throw std::runtime_error("Invalid SPIR-V: empty or size not multiple of 4");
+	}
 
+	// Convert byte array to uint32_t array (SPIR-V uses 32-bit words)
+	std::vector<uint32_t> spirv(spirvBytes.size() / 4);
+	std::memcpy(spirv.data(), spirvBytes.data(), spirvBytes.size());
+
+	// Create SPIRV-Cross compiler
+	spirv_cross::CompilerGLSL glsl(std::move(spirv));
+
+	spirv_cross::ShaderResources resources = glsl.get_shader_resources();
+	const std::string stagePrefix = isVertexShader ? "vs_" : "fs_";
+	for (auto& resource : resources.storage_buffers) {
+		uint32_t set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
+		uint32_t binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
+		std::string uniqueName = stagePrefix + resource.name + "_b" + std::to_string(binding);
+		glsl.set_name(resource.id, uniqueName);
+		glsl.set_name(resource.base_type_id, uniqueName + "_type");
+#ifdef _DEBUG
+		std::cout << "SSBO: " << resource.name << " - set=" << set << ", binding = " << binding << std::endl;
+#endif
+		// unset descriptor set as we're using OpenGL
+		glsl.unset_decoration(resource.id, spv::DecorationDescriptorSet);
+	}
+	for (auto& resource : resources.uniform_buffers) {
+		uint32_t set = glsl.get_decoration(resource.id, spv::DecorationDescriptorSet);
+		uint32_t binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
+		std::string uniqueName = stagePrefix + resource.name + "_b" + std::to_string(binding);
+		glsl.set_name(resource.id, uniqueName);
+		glsl.set_name(resource.base_type_id, uniqueName + "_type");
+#ifdef _DEBUG
+		std::cout << "UBO: " << resource.name << " - set=" << set << ", binding = " << binding << std::endl;
+#endif
+		// unset descriptor set as we're using OpenGL
+		glsl.unset_decoration(resource.id, spv::DecorationDescriptorSet);
+	}
+	for (auto& resource : resources.sampled_images) {
+		uint32_t binding = glsl.get_decoration(resource.id, spv::DecorationBinding);
+		std::string uniqueName = stagePrefix + resource.name + "_b" + std::to_string(binding);
+		glsl.set_name(resource.id, uniqueName);
+		glsl.unset_decoration(resource.id, spv::DecorationDescriptorSet);
+	}
+
+	// Configure OpenGL-specific compiler options
+	spirv_cross::CompilerGLSL::Options options;
+	options.version = 460;                      
+	options.es = false;                         
+	options.enable_420pack_extension = true;    
+	options.vertex.fixup_clipspace = false;     
+	options.vertex.flip_vert_y = false;         
+
+	options.vulkan_semantics = false;
+	options.vertex.support_nonzero_base_instance = true;
+
+	glsl.set_common_options(options);
+
+	std::string glslSource = glsl.compile();
+
+	std::cout << "GLSLShader: " << (isVertexShader ? "Vertex" : "Fragment")
+		<< " shader converted successfully (" << glslSource.size()
+		<< " bytes)" << std::endl;
+
+	return glslSource;
+}
 GLSLShader::GLSLShader(const std::string& filepath)
 	: m_FilePath{filepath}, m_RendererID{0}
 {
@@ -121,13 +191,28 @@ void GLSLShader::ParseShader(const std::string& filepath) {
 	else {
 		if (filepath.find(".slang") != std::string::npos) {
 			std::string source = std::string((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
-			std::vector<ShaderOutput> slangGLSLOutput = slangCompiler.compileToSPIRV(
+			std::vector<ShaderOutput> slangSpirVOutput = slangCompiler.compileToSPIRV(
 				source,
 				{ "vertexMain", "fragmentMain" });
-			if (slangGLSLOutput.size() == 2) {
-				m_RendererID = CreateSpirVShader(slangGLSLOutput[0].binaryData, slangGLSLOutput[1].binaryData);
-				//std::cout << "Fragment GLSL Shader:\n" << slangGLSLOutput[1].asText() << std::endl;
-				//m_RendererID = CreateShader(slangGLSLOutput[0].asText(), slangGLSLOutput[1].asText());
+			if (slangSpirVOutput.size() == 2) {
+				try {
+					m_RendererID = CreateShader(ConvertSPIRVToGLSL(slangSpirVOutput[0].binaryData, true),
+						ConvertSPIRVToGLSL(slangSpirVOutput[1].binaryData, false));
+					// Don't try to do this because slang doesn't support OpenGL SPIR-V so it will be broken
+					//m_RendererID = CreateSpirVShader(slangSpirVOutput[0].binaryData, slangSpirVOutput[1].binaryData);
+					// Also don't try to do this because slang doesn't support OpenGL GLSL so it will also be broken
+					//m_RendererID = CreateShader(slangGLSLOutput[0].asText(), slangGLSLOutput[1].asText());
+				} catch (const std::runtime_error& e) {
+					// logging to spv files
+					std::fstream vFile("vertex_log.spv", std::ios::out | std::ios::binary);
+					vFile.write(reinterpret_cast<const char*>(slangSpirVOutput[0].binaryData.data()), slangSpirVOutput[0].binaryData.size());
+					vFile.close();
+					std::fstream fFile("fragment_log.spv", std::ios::out | std::ios::binary);
+					fFile.write(reinterpret_cast<const char*>(slangSpirVOutput[1].binaryData.data()), slangSpirVOutput[1].binaryData.size());
+					fFile.close();
+					std::cout << "Error creating SPIR-V shader program: " << e.what() << "\n Dumped logs: vertex.spv, fragment.spv" << std::endl;
+
+				}
 			}
 		}
 		else {
@@ -154,7 +239,7 @@ uint32_t GLSLShader::CompileShader(uint32_t type, const std::string& source) {
 		std::cout << message << std::endl;
 		glDeleteShader(id);
 		free(message);
-		return 0;
+		return uint32_t{ 0 };
 	}
 
 	return id;
@@ -202,9 +287,23 @@ uint32_t GLSLShader::CreateSpirVShader(const std::vector<uint8_t>& VertexSPV, co
 		std::cout << "Shader linking failed: " << infoLog << std::endl;
 		free(infoLog);
 		glDeleteProgram(program);
+		throw std::runtime_error("SPIR-V Shader linking failed.");
 		return 0;
 	}
 	glValidateProgram(program);
+	glGetProgramiv(program, GL_VALIDATE_STATUS, &isLinked);
+	if (isLinked == GL_FALSE)
+	{
+		int32_t maxLength = 0;
+		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &maxLength);
+		// The maxLength includes the NULL character
+		char* infoLog = (char*)malloc(maxLength * sizeof(char));
+		glGetProgramInfoLog(program, maxLength, &maxLength, infoLog);
+		std::cout << "Shader validation failed: " << infoLog << std::endl;
+		free(infoLog);
+		glDeleteProgram(program);
+		return 0;
+	}
 
 	glDeleteShader(vs);
 	glDeleteShader(fs);
@@ -236,6 +335,19 @@ uint32_t GLSLShader::CreateShader(const std::string& vertexGLSLShader, const std
 		return 0;
 	}
 	glValidateProgram(program);
+	glGetProgramiv(program, GL_VALIDATE_STATUS, &isLinked);
+	if (isLinked == GL_FALSE)
+	{
+		int32_t maxLength = 0;
+		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &maxLength);
+		// The maxLength includes the NULL character
+		char* infoLog = (char*)malloc(maxLength * sizeof(char));
+		glGetProgramInfoLog(program, maxLength, &maxLength, infoLog);
+		std::cout << "Shader validation failed: " << infoLog << std::endl;
+		free(infoLog);
+		glDeleteProgram(program);
+		return 0;
+	}
 
 	glDeleteShader(vs);
 	glDeleteShader(fs);

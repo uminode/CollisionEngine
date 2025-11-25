@@ -143,11 +143,11 @@ Buffer Binder
 - created mainly because it removes 2 - 3 Getters / Setters
 - TODO: replace with renderer.bindShape(shape.vao_id, shape_ib_id); or just do a batch draw.
 */
-void ShapeFactory::BindShape(Shape shape) {
+void ShapeFactory::BindShape(const Shape& shape) {
 	renderer->BindShape(shape.shapeType);
 }
 
-Shape ShapeFactory::CreateRandomShape(float x, float y, float z) {
+Shape& ShapeFactory::CreateRandomShape(float x, float y, float z) {
 	int shapeType = RandomInt(0, 3);
 	int shapeSize = RandomInt(1, 10);
 	float r, g, b, vx, vy, vz;
@@ -158,9 +158,9 @@ Shape ShapeFactory::CreateRandomShape(float x, float y, float z) {
 	vy = RandomFloat(0.0f, 0.9f);
 	vz = RandomFloat(0.0f, 0.9f);
 
-	Shape newShape = CreateShape(x, y, z, shapeSize, shapeType);
+	Shape& newShape = CreateShape(x, y, z, shapeSize, shapeType);
 	
-	std::cout << "Spawned new shape: " << shapeType;
+	//std::cout << "Spawned new shape: " << shapeType << std::endl;
 	SetColor(newShape, r, g, b, 1.0f);
 	newShape.speed[0] = vx;
 	newShape.speed[1] = vy;
@@ -173,26 +173,26 @@ Shape ShapeFactory::CreateRandomShape(float x, float y, float z) {
 Shape Creator
 -creates new shape to add to the Array
 */
-Shape ShapeFactory::CreateShape(float x, float y, float z, int shapeSize, int ShapeType) {
+Shape& ShapeFactory::CreateShape(float x, float y, float z, int shapeSize, int ShapeType) {
 	switch (ShapeType)
 	{
 	case T_CUBE:
-		return CreateCube(x, y, z, shapeSize);
+		return CreateCube(x, y, z, static_cast<float>(shapeSize));
 	case T_SPHERE:
 		return CreateSphere(x + shapeSize / 2.0f, y + shapeSize / 2.0f, z + shapeSize / 2.0f, shapeSize / 2.0f);
 	case T_CYLINDER:
-		return CreateCylinder(x + shapeSize / 2.0f, y, z + shapeSize / 2.0f, shapeSize / 2.0f, shapeSize);
+		return CreateCylinder(x + shapeSize / 2.0f, y, z + shapeSize / 2.0f, shapeSize / 2.0f, static_cast<float>(shapeSize));
 	
     case T_RING:
         float r = RandomFloat(0.0f, 1.0f);
-		float r1 = 0.5* shapeSize;
+		float r1 = .5f* shapeSize;
 		float r2 = r1/(float)RandomInt(3, 10);
 		return CreateRing(r+5,2*r2+5, r1+5,r1,r2);
     }
-	return CreateCube(x, y, z, shapeSize);
+	return CreateCube(x, y, z, static_cast<float>(shapeSize));
 }
 
-Shape ShapeFactory::CreateRing(float x,float y, float z, float r1, float r2) {
+Shape& ShapeFactory::CreateRing(float x,float y, float z, float r1, float r2) {
 	if (firstRing) {
 		float* circle1 = CreateCircle(x, y + r2, z, abs(r1 - r2));
 		float* circle2 = CreateCircle(x, y, z, abs(r1 - 2 * r2));
@@ -294,7 +294,7 @@ Shape ShapeFactory::CreateRing(float x,float y, float z, float r1, float r2) {
 		}
 		
 		firstRing = false;
-		Shape tempShape = CreateShapeObject(ringVertices, 8 * vertex_size, T_RING, x, y, z, r1);
+		Shape& tempShape = CreateShapeObject(ringVertices, 8 * vertex_size, T_RING, x, y, z, r1);
 		tempShape.d2 = r2;
 		free(circle1);
 		free(circle2);
@@ -309,8 +309,9 @@ Shape ShapeFactory::CreateRing(float x,float y, float z, float r1, float r2) {
 	glm::mat4 model{ 1.f };
 	model = glm::translate(model, glm::vec3{ x, y, z });
 	model = glm::scale(model, glm::vec3{ r1, 4*r2, r1 });
-	Shape tempShape{ Prototypes.at(T_RING) };
-	tempShape.Model = model;
+	Shape* tempShapePtr = new Shape{ Prototypes.at(T_RING) };
+	Shape& tempShape = *tempShapePtr;
+	tempShape.matrices.model = model;
 	tempShape.center[0] = x;
 	tempShape.center[1] = y;
 	tempShape.center[2] = z;
@@ -347,7 +348,7 @@ float* ShapeFactory::CreateCircle(float x, float y, float z, float radius) {
 	return nullptr;
 }
 
-Shape ShapeFactory::CreateCube(float x0, float y0, float z0, float size) {
+Shape& ShapeFactory::CreateCube(float x0, float y0, float z0, float size) {
 	float x1 = x0 + size;
 	float y1 = y0 + size;
 	float z1 = z0 + size;
@@ -386,8 +387,9 @@ Shape ShapeFactory::CreateCube(float x0, float y0, float z0, float size) {
 	glm::mat4 model{ 1.f };
 	model = glm::translate(model, glm::vec3{ x0, y0, z0 });
 	model = glm::scale(model, glm::vec3{ size, size, size });
-	Shape tempShape{ Prototypes.at(T_CUBE) };
-	tempShape.Model = model;
+	Shape* tempShapePtr = new Shape{ Prototypes.at(T_CUBE) };
+	Shape& tempShape = *tempShapePtr;
+	tempShape.matrices.model = model;
 	tempShape.center[0] = x0+size/2.f;
 	tempShape.center[1] = y0+size/2.f;
 	tempShape.center[2] = z0+size/2.f;
@@ -395,7 +397,7 @@ Shape ShapeFactory::CreateCube(float x0, float y0, float z0, float size) {
 	return tempShape;
 }
 
-Shape ShapeFactory::CreateSphere(float x0, float y0, float z0, float radius) {
+Shape& ShapeFactory::CreateSphere(float x0, float y0, float z0, float radius) {
 
 	float x, y, z, xy;                              // vertex position
 	float nx, ny, nz, lengthInv = 1.0f / radius;    // vertex normal
@@ -443,8 +445,9 @@ Shape ShapeFactory::CreateSphere(float x0, float y0, float z0, float radius) {
 	glm::mat4 model{ 1.f };
 	model = glm::translate(model, glm::vec3{ x0, y0, z0 });
 	model = glm::scale(model, glm::vec3{ radius, radius, radius });
-	Shape tempShape{ Prototypes.at(T_SPHERE) };
-	tempShape.Model = model;
+	Shape* tempShapePtr = new Shape{ Prototypes.at(T_SPHERE) };
+	Shape& tempShape = *tempShapePtr;
+	tempShape.matrices.model = model;
 	tempShape.center[0] = x0;
 	tempShape.center[1] = y0;
 	tempShape.center[2] = z0;
@@ -452,7 +455,7 @@ Shape ShapeFactory::CreateSphere(float x0, float y0, float z0, float radius) {
 	return tempShape;
 }
 
-Shape ShapeFactory::CreateCylinder(float x, float y, float z, float radius, float height) {
+Shape& ShapeFactory::CreateCylinder(float x, float y, float z, float radius, float height) {
 	if (firstCylinder) {
 
 		float* circle1, * circle2;
@@ -486,8 +489,9 @@ Shape ShapeFactory::CreateCylinder(float x, float y, float z, float radius, floa
 	model = glm::translate(model, glm::vec3{ x, y + height / 2.f, z });
 	model = glm::scale(model, glm::vec3{ radius, height/2.f, radius });
 	Shape prototype = Prototypes.at(T_CYLINDER);
-	Shape tempShape{ prototype };
-	tempShape.Model = model;
+	Shape* tempShapePtr = new Shape{ prototype };
+	Shape& tempShape = *tempShapePtr;
+	tempShape.matrices.model = model;
 	tempShape.center[0] = x;
 	tempShape.center[1] = y + height/2.f;
 	tempShape.center[2] = z;
@@ -498,16 +502,17 @@ Shape ShapeFactory::CreateCylinder(float x, float y, float z, float radius, floa
 }
 
 // Creates an Object and its GPU buffer
-Shape ShapeFactory::CreateShapeObject(float * element, int elementSize, int shapeType, float x0, float y0, float z0, float d) {
+Shape& ShapeFactory::CreateShapeObject(float * element, int elementSize, int shapeType, float x0, float y0, float z0, float d) {
 	std::vector<float> dataVector;
 	dataVector.reserve(elementSize);
 	for (int i = 0; i < elementSize; i++) {
 		dataVector.push_back(element[i]);
 	}
-	Shape tempShape;
+	Shape* tempShapePtr = new Shape();
+	Shape& tempShape = *tempShapePtr; // trick for heap allocation
 	tempShape.size = elementSize;
 	tempShape.shapeType = shapeType;
-	tempShape.Model = glm::mat4(1.0f);
+	tempShape.matrices.model = glm::mat4(1.0f);
 	tempShape.speed[0] = 0.0f;
 	tempShape.speed[1] = 0.0f;
 	tempShape.speed[2] = 0.0f;
@@ -573,7 +578,7 @@ float* ShapeFactory::GetNormals(int shapeType) {
 Index Buffer Pointer Size
 - this is needed to draw the right amount of triangles for each shape
 */
-int ShapeFactory::GetIndexPointerSize(int shapeType) {
+uint32_t ShapeFactory::GetIndexPointerSize(uint32_t shapeType) {
 	switch (shapeType)
 	{
 	case T_CUBE:
@@ -607,14 +612,14 @@ uint32_t *ShapeFactory::GetIndexPointer(int shapeType) {
 //Random number generators
 // TODO: replace with a static random class.
 int ShapeFactory::RandomInt(int min, int max) {
-	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+	uint64_t seed = std::chrono::system_clock::now().time_since_epoch().count();
 	std::default_random_engine generator(seed);
 	std::uniform_int_distribution<int> distributionInteger(min, max);
 	return distributionInteger(generator);
 }
 
 float ShapeFactory::RandomFloat(float min, float max) {
-	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+	uint64_t seed = std::chrono::system_clock::now().time_since_epoch().count();
 	std::default_random_engine generator(seed);
 	std::uniform_real_distribution<float> distributionDouble(min, max);
 	return static_cast<float>(distributionDouble(generator));

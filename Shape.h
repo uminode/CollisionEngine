@@ -12,9 +12,9 @@ enum ShapeType {
 };
 
 struct objMatrices {
-	glm::mat4 mvp{ 1.f };
-	glm::mat4 model{ 1.f };
-	glm::mat3 normalModel{ 1.f };
+	glm::mat4 mvp{ 1.f }; // 4x4 floats x4 bytes = 64 bytes
+	glm::mat4 model{ 1.f }; // 128 bytes
+	glm::mat3x4 normalModel{ 1.f }; // 3x4floats x 4 bytes = 48 + 128 = 176 bytes
 };
 
 struct Shape {
@@ -22,7 +22,7 @@ struct Shape {
 	int shapeType = -1;
 	float speed[3] = { 0.0f ,0.0f ,0.0f };
 	float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	float center[3];
+	float center[3] = { 0.f, 0.f, 0.f };
 	objMatrices matrices;
 	float d = 0.f;
 	float d2 = 0.f;

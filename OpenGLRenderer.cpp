@@ -18,6 +18,22 @@ OpenGLRenderer::OpenGLRenderer() {
 }
 
 OpenGLRenderer::~OpenGLRenderer() {
+	for (uint32_t tex : textures) {
+		glDeleteTextures(1, &tex);
+	}
+	for (std::pair<uint32_t, uint32_t> handle: typeToSSBOMap) {
+		glDeleteBuffers(1, &handle.second);
+	}
+	for (std::pair<uint32_t, uint32_t> handle : typeToUBOMap) {
+		glDeleteBuffers(1, &handle.second);
+	}
+	for (std::pair<uint32_t, uint32_t> handle : shapeVBOIDmap) {
+		glDeleteBuffers(1, &handle.second);
+	}
+	for (std::pair<uint32_t, uint32_t> handle : shapeVAOIDmap) {
+		glDeleteVertexArrays(1, &handle.second);
+	}
+
 	if (window) glfwDestroyWindow(window);
 	glfwTerminate();
 }
@@ -74,6 +90,9 @@ int16_t OpenGLRenderer::init(uint16_t windowWidth, uint16_t windowHeight) {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#ifdef _DEBUG
+	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+#endif
 
 	window = glfwCreateWindow(windowWidth, windowHeight, "Shape Rammer 3000", NULL, NULL);
 	if (!window) {
@@ -84,7 +103,6 @@ int16_t OpenGLRenderer::init(uint16_t windowWidth, uint16_t windowHeight) {
 
 	glfwMakeContextCurrent(window);
 
-	// need to do this after valid context 
 	if (glewInit() != GLEW_OK) {
 		std::cout << "Error!" << std::endl;
 		return -1;
@@ -94,7 +112,6 @@ int16_t OpenGLRenderer::init(uint16_t windowWidth, uint16_t windowHeight) {
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 #ifdef _DEBUG
 	std::cout << "Debug context enabled" << std::endl;
-	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
 	if (flags & GL_CONTEXT_FLAG_DEBUG_BIT)
 	{
 		glEnable(GL_DEBUG_OUTPUT);
@@ -106,16 +123,10 @@ int16_t OpenGLRenderer::init(uint16_t windowWidth, uint16_t windowHeight) {
 #endif
 
 	std::cout << glGetString(GL_VERSION) << std::endl;
-
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 	glEnable(GL_BLEND);
-	glEnable(GL_NORMALIZE);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	//for the textures
-	glDisable(GL_TEXTURE_2D);
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
 	return 1;
 
@@ -132,7 +143,8 @@ void OpenGLRenderer::createUBO(uint32_t binding, uint16_t type, uint32_t size) {
 	GLuint ubo;
 	glGenBuffers(1, &ubo);
 	glBindBuffer(GL_UNIFORM_BUFFER, ubo);
-	glBufferData(GL_UNIFORM_BUFFER, size, NULL, GL_STATIC_DRAW);
+	glBufferStorage(GL_UNIFORM_BUFFER, size, NULL, GL_DYNAMIC_STORAGE_BIT);
+	//glBufferData(GL_UNIFORM_BUFFER, size, NULL, GL_STATIC_DRAW);
 	glBindBufferRange(GL_UNIFORM_BUFFER, binding, ubo, 0, size);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 	typeToUBOMap[type] = ubo;
@@ -143,12 +155,53 @@ void OpenGLRenderer::createSSBO(uint32_t binding, uint16_t type, uint32_t size) 
 	GLuint ssbo;
 	glGenBuffers(1, &ssbo);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, size, NULL, GL_STATIC_DRAW);
+	// We don't need to use glBufferSubData, so dynamic bit is off. Important for performance.
+	// I'll just use mapping.
+	glBufferStorage(GL_SHADER_STORAGE_BUFFER, size, NULL, GL_MAP_WRITE_BIT); // TODO: parameterize usage flags
 	glBindBufferRange(GL_SHADER_STORAGE_BUFFER, binding, ssbo, 0, size);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 	typeToSSBOMap[type] = ssbo;
 	typeToSSBOSize[type] = size;
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
+
+void OpenGLRenderer::resizeSSBO(uint16_t type, uint32_t newSize) {
+	GLuint ssbo;
+	glGenBuffers(1, &ssbo);
+	glBindBuffer(GL_COPY_WRITE_BUFFER, ssbo);
+	glBufferStorage(GL_COPY_WRITE_BUFFER, newSize, NULL, GL_MAP_WRITE_BIT);
+	glBindBuffer(GL_COPY_READ_BUFFER, typeToSSBOMap[type]);
+	glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, std::min(newSize, typeToSSBOSize[type]));
+	glBindBuffer(GL_COPY_WRITE_BUFFER, 0); // should be correct, but it generates error 1280
+	glBindBuffer(GL_COPY_READ_BUFFER, 0);
+	typeToSSBOSize[type] = newSize;
+	glDeleteBuffers(1, &typeToSSBOMap[type]);
+	typeToSSBOMap[type] = ssbo;
+}
+
+void *OpenGLRenderer::getMappedSSBOData(uint16_t type, uint32_t maxSize) {
+	uint16_t i = 1;
+	if (maxSize > typeToSSBOSize[type]) {
+		resizeSSBO(type, maxSize);
+	}
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, typeToSSBOMap[type]);
+	void* ptr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, typeToSSBOSize[type], GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+
+	while (ptr == nullptr) {
+		if (0 == i) throw std::runtime_error("GPU data upload failed. glMapBufferRange returned null pointer.");
+		ptr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, typeToSSBOSize[type], GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+		++i;
+	}
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+	return ptr;
+}
+
+void OpenGLRenderer::unmapSSBO(uint16_t type) {
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, typeToSSBOMap[type]);
+	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
 void OpenGLRenderer::waitIdle() {
 	// do nothing
 	BindShader();
@@ -161,11 +214,9 @@ void OpenGLRenderer::uploadUBOData(uint32_t binding, uint16_t type, uint32_t siz
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
-void OpenGLRenderer::uploadSSBOData(uint32_t binding, uint16_t type, uint32_t size, uint32_t offset, void *data) {
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, typeToUBOMap[type]);
-	glBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, size, data);
-	glBindBufferRange(GL_SHADER_STORAGE_BUFFER, binding, typeToUBOMap[type], 0, typeToUBOSize[type]);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+void OpenGLRenderer::BindSSBO(uint32_t binding, uint16_t type) {
+	glBindBufferRange(GL_SHADER_STORAGE_BUFFER, binding, typeToSSBOMap[type], 0, typeToSSBOSize[type]);
 }
 
 void OpenGLRenderer::createObjectBuffer(Shape &shape, int32_t index_pointer_size, int32_t normal_pointer_size, float *normals, uint32_t *index_array, std::vector<float> objDataVector) {
@@ -209,30 +260,45 @@ void OpenGLRenderer::clear(GLuint framebufferID) {
 }
 
 void OpenGLRenderer::render() {
-	// TODO: implement the complete rendering process.
+
+}
+
+void OpenGLRenderer::renderBatch(int16_t shapeType, uint32_t ib_size, uint32_t amount, uint32_t baseInstance) {
+	BindShape(shapeType);
+	glDrawElementsInstancedBaseInstance(GL_TRIANGLES, ib_size, GL_UNSIGNED_INT, nullptr, amount, baseInstance);
 }
 void OpenGLRenderer::drawElements(uint32_t ib_size) {
 	glDrawElements(GL_TRIANGLES, ib_size, GL_UNSIGNED_INT, nullptr);
 }
 void OpenGLRenderer::initShader(const std::string& path) {
-	GLSLShader aShader{ path };
-	shader = aShader;
-	shader.Bind();
+	//GLSLShader aShader{ path };
+	GLSLShader* aShader = new GLSLShader{ path };
+	//shaders.push_back(aShader);
+	//shaders.back().Bind();
+	shaders.push_back(aShader);
+	shaders.back()->Bind();
 }
 void OpenGLRenderer::initShader(const std::string& vertPath, const std::string& fragPath) {
-	GLSLShader aShader{ vertPath, fragPath };
-	shader = aShader;
-	shader.Bind();
+	GLSLShader* aShader = new GLSLShader{ vertPath, fragPath };
+	//shaders.push_back(aShader);
+	//shaders.back().Bind();
+	shaders.push_back(aShader);
+	shaders.back()->Bind();
 }
-void OpenGLRenderer::setShader(GLSLShader &shader) {
-	this->shader = shader;
+void OpenGLRenderer::setShader(GLSLShader &shader, int shaderType) {
+	//shaders.at(shaderType) = shader;
+	shaders.at(shaderType) = &shader;
 	shader.Bind();
 }
 void OpenGLRenderer::setViewport(uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
 	glViewport(x, y, width, height);
 }
-void OpenGLRenderer::BindShader() {
-	shader.Bind();
+void OpenGLRenderer::BindShader(int shaderType) {
+	//shaders.at(shaderType).Bind();
+	shaders.at(shaderType)->Bind();
+}
+void OpenGLRenderer::unbindShader() {
+	glUseProgram(0);
 }
 
 void OpenGLRenderer::beginFrame() {
