@@ -28,7 +28,7 @@ int ApplicationController::start() {
 	
 	uint32_t one = 1;
 	uint32_t zero = 0;
-	if (renderer->init(1000, 1000) != 1) return APP_GENERIC_ERROR;
+	renderer->init(1000, 1000);
 	window = renderer->getWindow();
 	if (!window) return APP_GENERIC_ERROR;
 	shapeArray->setRenderer(renderer);

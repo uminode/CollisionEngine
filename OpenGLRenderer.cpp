@@ -80,11 +80,11 @@ void OpenGLRenderer::loadTexture(const std::string &fileName)
 	stbi_image_free(data);
 	textures.push_back(texture);
 }
-int16_t OpenGLRenderer::init(uint16_t windowWidth, uint16_t windowHeight) {
+void OpenGLRenderer::init(uint16_t windowWidth, uint16_t windowHeight) {
 
 	if (!glfwInit()) {
 		// raise exception.
-		return -1;
+		throw std::runtime_error("GLFW initialization failed!");
 	}
 
 
@@ -101,14 +101,13 @@ int16_t OpenGLRenderer::init(uint16_t windowWidth, uint16_t windowHeight) {
 	if (!window) {
 		glfwTerminate();
 		// raise exception.
-		return -1;
+		throw std::runtime_error("GLFW window creation failed!");
 	}
 
 	glfwMakeContextCurrent(window);
 
 	if (glewInit() != GLEW_OK) {
-		std::cout << "Error!" << std::endl;
-		return -1;
+		throw std::runtime_error("GLEW initialization failed!");
 	}
 	int flags;
 	glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
@@ -131,8 +130,6 @@ int16_t OpenGLRenderer::init(uint16_t windowWidth, uint16_t windowHeight) {
 	glDepthFunc(GL_LESS);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	return 1;
 
 }
 void OpenGLRenderer::BindShape(int shapeType) {
@@ -199,7 +196,7 @@ void OpenGLRenderer::resizeSSBO(uint16_t type, uint32_t newSize) {
 	typeToPersistentSSBOMap[type] = PersistentBuffer{ ssbo, ptr, newSize };
 }
 
-void *OpenGLRenderer::getMappedSSBOData(uint16_t type, uint32_t maxSize) {
+void *OpenGLRenderer::getMappedSSBOData(uint16_t type, uint64_t maxSize) {
 	if (maxSize > typeToSSBOSize[type]) {
 		resizeSSBO(type, maxSize);
 	}

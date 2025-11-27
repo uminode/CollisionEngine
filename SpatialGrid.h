@@ -21,7 +21,7 @@ private:
     };
 
     float m_cellSize;
-    std::unordered_map<GridKey, std::vector<int>, GridKeyHash> m_cells;
+    std::unordered_map<GridKey, std::vector<uint32_t>, GridKeyHash> m_cells;
 
     GridKey getKey(float x, float y, float z) const {
         return {
@@ -38,12 +38,12 @@ public:
         m_cells.clear();
     }
 
-    void insert(int objectIndex, float x, float y, float z) {
+    void insert(uint32_t objectIndex, float x, float y, float z) {
         GridKey key = getKey(x, y, z);
         m_cells[key].push_back(objectIndex);
     }
 
-    void queryNeighbors(float x, float y, float z, std::vector<int>& results) {
+    void queryNeighbors(float x, float y, float z, std::vector<uint32_t>& results) {
         results.clear();
         GridKey center = getKey(x, y, z);
 

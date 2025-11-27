@@ -3,14 +3,18 @@
 #include <cstdint>
 #include <vector>
 #include "Shape.h"
+#include <GLFW/glfw3.h>
 
 /// Abstract Renderer Interface
 class Renderer
 {
+private:
+	GLFWwindow *window = nullptr;
 public:
     virtual ~Renderer() = default;
 
-    virtual int16_t init(uint16_t windowWidth, uint16_t windowHeight) = 0;
+    virtual void init(uint16_t windowWidth, uint16_t windowHeight) = 0;
+	virtual inline GLFWwindow* getWindow() = 0;
 
     virtual void beginFrame() = 0;   // start recording/clearing
     virtual void clear() = 0;        // clear default framebuffer
@@ -34,6 +38,12 @@ public:
 
 // TODO: relocate these to a seperate file correlated to gpu storage
 // These structs include stride bits for the std140 layout. We should really change to std430
+
+struct PersistentBuffer {
+	uint32_t bufferID;
+	void* mappedPtr;
+	uint64_t size;
+};
 struct colorData {
 	glm::vec4 color;
 };
@@ -42,8 +52,7 @@ struct camLightPositions {
     glm::vec4 lightPos;
 };
 
-enum BufferUsage
-{
+enum BufferUsage {
     MODEL_MATRIX,
 	OBJ_COLOR,
     CAM_LIGHT_POSITIONS,
@@ -56,4 +65,10 @@ enum BufferUsage
     SPHERE_COLORS,
     CYLINDER_COLORS,
     RING_COLORS 
+};
+
+enum ShaderTypes {
+    SIMPLE_SHADER = 0,
+    TEXTURE_SHADER,
+    BATCH_SHADER
 };

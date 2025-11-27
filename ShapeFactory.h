@@ -80,8 +80,8 @@ public:
 
 	void BindShape(const Shape& shape); // Move to Renderer Class
 
-	Shape& CreateRandomShape(float x = 0.f, float y = 0.f, float z = 0.f, int maxSize = 10);
-	Shape& CreateShape(float x, float y, float z, int size, int ShapeType);
+	Shape& CreateRandomShape(float x = 0.f, float y = 0.f, float z = 0.f, float maxSize = 10.f);
+	Shape& CreateShape(float x, float y, float z, float size, int ShapeType);
 
 	// Color handlers, DEBUG: Move to another class
 	void SetRandomColor(Shape& shape, float alpha_value = 1.0f);

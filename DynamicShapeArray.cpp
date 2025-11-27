@@ -46,9 +46,9 @@ void DynamicShapeArray::CreateRandomShape() {
 
 void DynamicShapeArray::CreateRandomShapes(int amount) {
 	int count = 0;
-	int perAxis = std::ceil(std::cbrt(amount));
+	int perAxis = static_cast<int>(std::ceil(std::cbrt(amount)));
 	// TODO: change these hardcoded variables to something intuitive
-	int maxSize = 100 / perAxis * .8f;
+	float maxSize = static_cast<float>(100.f / perAxis * .8f);
 	maxSize = maxSize > 2 ? maxSize : 2;
 	maxSize = maxSize < 10 ? maxSize : 10;
 	float px = 0.f, py = 0.f, pz = 0.f;
@@ -68,7 +68,7 @@ void DynamicShapeArray::CreateRandomShapes(int amount) {
 Shape Creator
 -creates new shape to add to the Array
 */
-void DynamicShapeArray::CreateShape(float x, float y, float z, int elementSize, int ShapeType) {
+void DynamicShapeArray::CreateShape(float x, float y, float z, float elementSize, int ShapeType) {
 	Shape* newShape = &shapeFactory->CreateShape(x, y, z, elementSize, ShapeType);
 	AddShape(newShape);
 }
@@ -97,7 +97,7 @@ void DynamicShapeArray::setRenderer(OpenGLRenderer* renderer) {
 	shapeFactory->setRenderer(renderer);
 }
 
-float* DynamicShapeArray::GetColor(int index) {
+float* DynamicShapeArray::GetColor(uint32_t index) {
 	if (index < size) {
 		return shapeFactory->GetColor(*shapeArray[index]);
 	}
@@ -232,7 +232,7 @@ void DynamicShapeArray::CheckAllCollisions() {
 		m_nearbyCache.clear();	
 		m_SpatialGrid.queryNeighbors(px, py, pz, m_nearbyCache);
 
-		for (int j : m_nearbyCache) {
+		for (uint32_t j : m_nearbyCache) {
 			if (j <= i) continue; // avoid double checks
 			CheckCollisionPair(i, j);
 		}
@@ -439,6 +439,7 @@ void DynamicShapeArray::CheckCollisionPair(int i, int j) {
 *Collision
 -changes the speeds of the shapes in a collision
 */
+// TODO: FIX THE SIZE STUFF, it's horrifying it works remotely well
 void DynamicShapeArray::Collide(int index1, int index2) {
 	Shape& shape1 = *shapeArray[index1];
 	Shape& shape2 = *shapeArray[index2];
@@ -480,7 +481,6 @@ void DynamicShapeArray::Collide(int index1, int index2) {
 		float m = abs(dists[0]);
 		m = std::max(m, abs(dists[1]));
 		m = std::max(m, abs(dists[2]));
-		glm::vec3 M;
 
 		if (m == abs(dists[0])) {
 			shape2.speed[0] = -speed[0];
@@ -496,16 +496,15 @@ void DynamicShapeArray::Collide(int index1, int index2) {
 		glm::vec3 Z(0.0f, 0.0f, 1.0f);
 
 		glm::vec3 centerToCenter(dx, dy, dz);
-		float size1 = shape1.size / 2;
-		float size2 = shape2.size / 2;
+		// WOWZIES THIS IS SUPER WRONG. SIZE IS THE ELEMENT BUFFER SIZE NOT THE RADIUS OR HEIGHT
+		float size1 = shape1.d / 2;
+		//float size2 = shape2.size / 2;
 		Tspeed = glm::normalize(speed);
 		centerToCenter = glm::normalize(centerToCenter);
 		glm::vec3 ctc2(centerToCenter[0], 0, centerToCenter[2]);
 		float dists[2] = { cos((acos(abs(glm::dot(centerToCenter,X))) + acos(abs(glm::dot(centerToCenter,Z)))) / 2),  glm::dot(centerToCenter,Y) };
 		float m = abs(dists[1]);
 		m = std::max(m, abs(dists[0]));
-
-		glm::vec3 M;
 
 		if ((dists[1] >= SQRT_2 / 2 && dists[1] < 1) || (dists[1] <= -SQRT_2 / 2 && dists[1] > -1)) {
 			shape2.speed[1] = -speed[1];
@@ -528,16 +527,15 @@ void DynamicShapeArray::Collide(int index1, int index2) {
 
 
 		glm::vec3 centerToCenter(dx - s1 - s2, dy, dz - s1 - s2);
-		float size1 = shape1.size / 2;
-		float size2 = shape2.size / 2;
+		// WOWZIES THIS IS SUPER WRONG. SIZE IS THE ELEMENT BUFFER SIZE NOT THE RADIUS OR HEIGHT
+		float size1 = shape1.d / 2.f;
+		//float size2 = shape2.d / 2.f;
 		Tspeed = glm::normalize(speed);
 		centerToCenter = glm::normalize(centerToCenter);
 		glm::vec3 ctc2(centerToCenter[0], 0, centerToCenter[2]);
 		float dists[2] = { cos((acos(abs(glm::dot(centerToCenter,X))) + acos(abs(glm::dot(centerToCenter,Z)))) / 2),  glm::dot(centerToCenter,Y) };
 		float m = abs(dists[1]);
 		m = std::max(m, abs(dists[0]));
-
-		glm::vec3 M;
 
 		if ((dists[1] >= SQRT_2 / 2 && dists[1] < 1) || (dists[1] <= -SQRT_2 / 2 && dists[1] > -1)) {
 			shape2.speed[1] = -speed[1];

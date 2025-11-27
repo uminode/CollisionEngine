@@ -79,6 +79,7 @@ Once you run the demo, the program will open in the 3D scene. You can move aroun
 		-- DX12Renderer implements Renderer
 	- Modernize code
 		-- Utilize modern OpenGL (Direct State Access)
+			-- setupDebugMessenger() to match Vulkan structure
 		-- Utilize modern C++ features (RAII, coroutines?)
 		-- Utilize dynamic link libraries instead of a monolithic exe
 	- Fix InputController for Windows 11

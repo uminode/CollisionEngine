@@ -17,7 +17,7 @@ public:
 	//creates Shapes and adds them to the Array
 	void CreateRandomShape();
 	void CreateRandomShapes(int amount);
-	void CreateShape(float x, float y, float z, int size, int ShapeType);
+	void CreateShape(float x, float y, float z, float size, int ShapeType);
 	
 	//Binds VAO and ib of the shape at the index
 	void BindShape(int index);
@@ -26,14 +26,6 @@ public:
 	void UpdatePhysics(float deltaTime);
 	void UpdateMatrices(const glm::mat4& view, const glm::mat4& projection);
 
-	[[deprecated("Use UpdatePhysics() instead")]]
-	void Move(int index);
-	[[deprecated("Use UpdatePhysics() instead")]]
-	void Move(int index, glm::mat4 view, glm::mat4& projection);
-	[[deprecated("Use UpdatePhysics() instead")]]
-	void MoveAll();
-	[[deprecated("Use UpdatePhysics() + UpdateMatrices() instead")]]
-	void MoveAll(glm::mat4 view, glm::mat4& projection);
 	void MoveSphere(int index, glm::vec3 speed);
 	void SpeedUP(bool up);
 
@@ -42,7 +34,7 @@ public:
 	inline uint64_t getShapeTypeArraySize(int16_t shape) { return shapeTypeArray[shape].size(); };
 	inline glm::mat4 getModel(int index) { return shapeArray[index]->matrices.model; };
 	inline glm::mat4 getNormalModel(int index) { return shapeArray[index]->matrices.normalModel; };
-	float * GetColor(int index);//Returns the color of the shape to pass into the shader
+	float * GetColor(uint32_t index);//Returns the color of the shape to pass into the shader
 	uint32_t GetIndexPointerSize(uint32_t shapeType);//Returns the size of the ib to use when drawing
 	void uploadMatricesToPtr(int shapeType, uint16_t type, void* ptr); // uploads all matrices of a shape type to a mapped ssbo pointer
 	void uploadColorsToPtr(int shapeType, uint16_t type, void* ptr); // uploads all colors of a shape type to a mapped ssbo pointer
@@ -62,11 +54,10 @@ private:
 	
 	//collision handling
 	SpatialGrid m_SpatialGrid{ 10.0f }; // cell size of 20 units
-	std::vector<int> m_nearbyCache;
+	std::vector<uint32_t> m_nearbyCache;
+
 	void CheckAllCollisions();
 	void CheckCollisionPair(int i, int j);
-	[[deprecated("Use CheckCollisionPair() instead")]]
-	void CheckCollision(int index);
 	void Collide(int index1, int index2);
 	
 	//assisting function

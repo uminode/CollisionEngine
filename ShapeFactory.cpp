@@ -147,7 +147,7 @@ void ShapeFactory::BindShape(const Shape& shape) {
 	renderer->BindShape(shape.shapeType);
 }
 
-Shape& ShapeFactory::CreateRandomShape(float x, float y, float z, int maxSize) {
+Shape& ShapeFactory::CreateRandomShape(float x, float y, float z, float maxSize) {
 	int shapeType = RandomInt(0, 3);
 	int shapeSize = RandomInt(1, maxSize);
 	float r, g, b, vx, vy, vz;
@@ -172,7 +172,7 @@ Shape& ShapeFactory::CreateRandomShape(float x, float y, float z, int maxSize) {
 Shape Creator
 -creates new shape to add to the Array
 */
-Shape& ShapeFactory::CreateShape(float x, float y, float z, int shapeSize, int ShapeType) {
+Shape& ShapeFactory::CreateShape(float x, float y, float z, float shapeSize, int ShapeType) {
 	switch (ShapeType)
 	{
 	case T_CUBE:
@@ -622,14 +622,14 @@ uint32_t *ShapeFactory::GetIndexPointer(int shapeType) {
 // TODO: replace with a static random class.
 int ShapeFactory::RandomInt(int min, int max) {
 	uint64_t seed = std::chrono::system_clock::now().time_since_epoch().count();
-	std::default_random_engine generator(seed);
+	std::default_random_engine generator(static_cast<uint32_t>(seed));
 	std::uniform_int_distribution<int> distributionInteger(min, max);
 	return distributionInteger(generator);
 }
 
 float ShapeFactory::RandomFloat(float min, float max) {
 	uint64_t seed = std::chrono::system_clock::now().time_since_epoch().count();
-	std::default_random_engine generator(seed);
+	std::default_random_engine generator(static_cast<uint32_t> (seed));
 	std::uniform_real_distribution<float> distributionDouble(min, max);
 	return static_cast<float>(distributionDouble(generator));
 }

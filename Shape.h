@@ -1,9 +1,6 @@
 #pragma once
 #include <glm/glm.hpp>
-//#define T_CUBE 0
-//#define T_SPHERE 1
-//#define T_CYLINDER 2
-//#define T_RING 3
+
 enum ShapeType {
 	T_CUBE = 0,
 	T_SPHERE,

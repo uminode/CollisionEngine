@@ -1,16 +1,11 @@
 #pragma once
+#include "opengl.h"
 #include "Renderer.h"
 #include "GLSLShader.h"
 #include "Shape.h"
-#include "opengl.h"
 #include <vector>
 #include <map>
 #include <string>
-struct PersistentBuffer {
-	uint32_t bufferID;
-	void* mappedPtr;
-	uint64_t size;
-};
 class OpenGLRenderer : public Renderer
 {
 private:
@@ -31,7 +26,7 @@ public:
 	OpenGLRenderer();
 	~OpenGLRenderer();
 
-	int16_t init(uint16_t windowWidth, uint16_t windowHeight) override;
+	void init(uint16_t windowWidth, uint16_t windowHeight) override;
 
 	inline GLFWwindow* getWindow() { return window; };
 	void setShader(GLSLShader& shader, int shaderType);
@@ -50,7 +45,7 @@ public:
 	// Is not needed as mapped pointer is used for SSBOs
 	//void uploadSSBOData(uint32_t binding, uint16_t type, uint32_t size, uint32_t offset, void *data);
 	// TODO: check with vulkan/dx12 to see if unmap is needed there. Add it to renderer?
-	void* getMappedSSBOData(uint16_t type, uint32_t maxSize);
+	void* getMappedSSBOData(uint16_t type, uint64_t maxSize);
 	void resizeSSBO(uint16_t type, uint32_t newSize);
 	void unmapSSBO(uint16_t type);
 	void BindSSBO(uint32_t binding, uint16_t type);
@@ -69,9 +64,3 @@ public:
 	void drawElements(uint32_t ib_size); // temporary to accelerate integration
 
 };
-enum ShaderTypes {
-	SIMPLE_SHADER = 0,
-	TEXTURE_SHADER,
-	BATCH_SHADER
-};
-
