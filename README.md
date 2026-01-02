@@ -6,12 +6,19 @@ This project was a 3D Object Collision Demo developed using OpenGL as part of a 
 It's been overhauled to include a more modular architecture with an abstract Renderer class, allowing for easier integration of different rendering backends. The OpenGLRenderer implementation has been improved, and a SlangCompiler has been introduced to streamline shader management across multiple graphics APIs. The codebase has been modernized to utilize contemporary C++ features and OpenGL practices, enhancing performance and maintainability.
 ## Installation
 
-To run the **3D Object Collision Demo**, follow these steps:
+*For the Win32 [Release](https://github.com/uminode/CollisionEngine/releases/tag/v2025_11_27_win64)*
+
+If your system isn't on Win32, follow the build instructions.
+
+## Build
+To build the **3D Object Collision Demo**, follow these steps:
+
+For the latest edition, you'll have to build the solution by:
 
 1. **Clone the Repository**:
 
     ```bash
-    git clone https://github.com/nikos-pap/Lab1-Graphics.git
+    git clone https://github.com/uminode/Lab1-Graphics.git
     ```
 
 2. **Open the Solution in Visual Studio**:
@@ -70,12 +77,18 @@ Once you run the demo, the program will open in the 3D scene. You can move aroun
 
 	- IMPORTANT: migrate to CMake for cross-platform compatibility
 		-- Check the CMakeLists.txt file for progress.
-	- Update Dependencies 
+		-- use StamatisMat/DX12Test3 as template for D3D12 and slang CMake dependencies.
+		-- vulkan SDK by lunarg contains vulkan, slang, spirv-cross, spirv and glm.
+		-- Figure out glfw3, glew/glad download.
+	- Update Dependencies (use CMake TODO for this. Solve two problems with one solution)
 		-- figure out how to include spirv-cross without getting the user to compile the project themselves. CMake to the rescue?
+			--- vulkan SDK by lunarg contains vulkan, slang, spirv-cross, spirv and glm. Use that in CMake.
+			--- use StamatisMat/DX12Test3 as template for D3D12 CMake dependencies.
 	- Implement more renderers:
 		-- VulkanRenderer implements Renderer
 		-- DX12Renderer implements Renderer
 	- Modernize code
+		-- put code in src folder, dependencies in include, lib, bin folders. Remove slnx file and vcxproj file as they're platform specific.
 		-- Utilize modern OpenGL (Direct State Access)
 			-- setupDebugMessenger() to match Vulkan structure
 		-- Utilize modern C++ features (RAII, coroutines?)
