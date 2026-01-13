@@ -74,7 +74,6 @@ Once you run the demo, the program will open in the 3D scene. You can move aroun
 		-- VulkanRenderer implements Renderer
 		-- DX12Renderer implements Renderer
 	- Modernize code
-		-- put code in src folder, dependencies in include, lib, bin folders. Remove slnx file and vcxproj file as they're platform specific.
 		-- Utilize modern OpenGL (Direct State Access)
 			-- setupDebugMessenger() to match Vulkan structure
 		-- Utilize modern C++ features (RAII, coroutines?)
@@ -83,6 +82,7 @@ Once you run the demo, the program will open in the 3D scene. You can move aroun
 
 DONE:
 
+	- put code in src folder, dependencies in include, lib, bin folders. Remove slnx file and vcxproj file as they're platform specific. \/
 	- Updated Dependencies using CMake
 		-- Added D3D12 and limited Vulkan support. You could change the CMakeLists file to your own LunarG VulkanSDK directory path so that it uses that, because it's too big to make somebody download for a single repo.
 	- IMPORTANT: migrate to CMake for cross-platform compatibility \/
