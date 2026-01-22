@@ -15,7 +15,8 @@ ApplicationController::ApplicationController() {
 	camera = new CameraController();
 	shapeArray = new DynamicShapeArray();
 	inputController = new InputController(camera, shapeArray);
-	renderer = new OpenGLRenderer();
+	//renderer = new OpenGLRenderer();
+	renderer = new D3D12Renderer();
 }
 ApplicationController::~ApplicationController() {
 	delete camera;
@@ -26,8 +27,6 @@ ApplicationController::~ApplicationController() {
 
 int ApplicationController::start() {
 	
-	uint32_t one = 1;
-	uint32_t zero = 0;
 	renderer->init(1000, 1000);
 	window = renderer->getWindow();
 	if (!window) return APP_GENERIC_ERROR;
@@ -71,12 +70,12 @@ int ApplicationController::start() {
 	shapeArray->CreateShape(0.0f, 0.0f, 0.0f, 100.0f, T_CUBE);
 	cubeModel = shapeArray->getModel(0);
 	cubeNormalModel = shapeArray->getNormalModel(0);
-	uint8_t cubeIndex = 0;
+	//uint8_t cubeIndex = 0;
 	shapeArray->SetRandomColor(0, 0.5f);//give random color to cube
 	float* cubeColor = shapeArray->GetColor(0);
 	glm::vec4 cubeColorVec = glm::vec4(cubeColor[0], cubeColor[1], cubeColor[2], cubeColor[3]);
 	shapeArray->CreateShape(35.0f, 35.0f, 35.0f, 30.0f, T_SPHERE);
-	uint8_t sphereIndex = 1;
+	//uint8_t sphereIndex = 1;
 	shapeArray->SetColor(1, 1.0f, 1.0f, 1.0f, 1.0f);
 	float* sphereColor = shapeArray->GetColor(1);
 	glm::vec4 sphereColorVec = glm::vec4(sphereColor[0], sphereColor[1], sphereColor[2], sphereColor[3]);
@@ -97,14 +96,17 @@ int ApplicationController::start() {
 	renderer->initShader("shaders/obj_shader.slang");
 	renderer->initShader("shaders/obj_tex_shader.slang");
 	renderer->initShader("shaders/batch_shader.slang"); 
+	
+	renderer->finalizeInit();
 
 	// Helpers to profile the code
 #ifdef _DEBUG
-	OpenGLProfiler bufferUpdateProfiler("Buffer Updates");
-	OpenGLProfiler cubeDrawProfiler("Draw Cubes");
-	OpenGLProfiler sphereDrawProfiler("Draw Spheres");
-	OpenGLProfiler cylinderDrawProfiler("Draw Cylinders");
-	OpenGLProfiler ringDrawProfiler("Draw Rings");
+	// Not renderer agnostic.`
+	//OpenGLProfiler bufferUpdateProfiler("Buffer Updates");
+	//OpenGLProfiler cubeDrawProfiler("Draw Cubes");
+	//OpenGLProfiler sphereDrawProfiler("Draw Spheres");
+	//OpenGLProfiler cylinderDrawProfiler("Draw Cylinders");
+	//OpenGLProfiler ringDrawProfiler("Draw Rings");
 #endif
 	uint32_t frameCount = 0;
 	uint32_t shapeArrSize;
@@ -148,6 +150,7 @@ int ApplicationController::start() {
 		// Bind shape -> upload color and model matrix -> draw call -> unbind shader
 		sphereModel = shapeArray->getModel(1);
 		renderer->BindShader(TEXTURE_SHADER);
+		// TODO: remove uploadUBOData, use persistent mapping on UBOs as well.
 		renderer->uploadUBOData(2, CAM_LIGHT_POSITIONS, sizeof(glm::vec3), 0, &camera->getPosition());
 		renderer->uploadUBOData(2, CAM_LIGHT_POSITIONS, sizeof(glm::vec3), sizeof(glm::vec4), &lightPos[0]);
 
@@ -161,7 +164,7 @@ int ApplicationController::start() {
 		renderer->unbindShader();
 
 #ifdef _DEBUG
-		bufferUpdateProfiler.begin();
+		//bufferUpdateProfiler.begin();
 #endif
 		// This is the core of the batch rendering process
 		// Uploads for all objects of each shape type their matrices and colors to the mapped SSBO pointers
@@ -184,21 +187,22 @@ int ApplicationController::start() {
 		ssboPtr = renderer->getMappedSSBOData(RING_COLORS, shapeArray->getShapeTypeArraySize(T_RING) * sizeof(glm::vec4));
 		shapeArray->uploadColorsToPtr(T_RING, RING_COLORS, ssboPtr);
 #ifdef _DEBUG
-		bufferUpdateProfiler.end();
+		//bufferUpdateProfiler.end();
 #endif
 
 		// After upload draw all objects in batches per shape type
 		renderer->BindShader(BATCH_SHADER);
 #ifdef _DEBUG
-		cubeDrawProfiler.begin();
+		//cubeDrawProfiler.begin();
 #endif
 		renderer->BindShape(T_CUBE);
 		renderer->BindSSBO(0, CUBE_MATRICES);
 		renderer->BindSSBO(1, CUBE_COLORS);
 		renderer->renderBatch(T_CUBE, shapeArray->GetIndexPointerSize(T_CUBE), shapeArray->getShapeTypeArraySize(T_CUBE)-1, 1); // skip first cube as it's drawn separately
+		//renderer->renderBatch(T_CUBE, shapeArray->GetIndexPointerSize(T_CUBE), 2, 1); // skip first cube as it's drawn separately
 #ifdef _DEBUG
-		cubeDrawProfiler.end();
-		sphereDrawProfiler.begin();
+		//cubeDrawProfiler.end();
+		//sphereDrawProfiler.begin();
 #endif
 
 		renderer->BindShape(T_SPHERE);
@@ -206,8 +210,8 @@ int ApplicationController::start() {
 		renderer->BindSSBO(1, SPHERE_COLORS);
 		renderer->renderBatch(T_SPHERE, shapeArray->GetIndexPointerSize(T_SPHERE), shapeArray->getShapeTypeArraySize(T_SPHERE) - 1, 1); // skip first sphere as it's drawn separately
 #ifdef _DEBUG
-		sphereDrawProfiler.end();
-		cylinderDrawProfiler.begin();
+		//sphereDrawProfiler.end();
+		//cylinderDrawProfiler.begin();
 #endif
 
 		renderer->BindShape(T_CYLINDER);
@@ -216,8 +220,8 @@ int ApplicationController::start() {
 		renderer->renderBatch(T_CYLINDER, shapeArray->GetIndexPointerSize(T_CYLINDER), shapeArray->getShapeTypeArraySize(T_CYLINDER), 0);
 
 #ifdef _DEBUG
-		cylinderDrawProfiler.end();
-		ringDrawProfiler.begin();
+		//cylinderDrawProfiler.end();
+		//ringDrawProfiler.begin();
 #endif
 		renderer->BindShape(T_RING);
 		renderer->BindSSBO(0, RING_MATRICES);
@@ -225,7 +229,7 @@ int ApplicationController::start() {
 		renderer->renderBatch(T_RING, shapeArray->GetIndexPointerSize(T_RING), shapeArray->getShapeTypeArraySize(T_RING), 0);
 		renderer->unbindShader();
 #ifdef _DEBUG
-		ringDrawProfiler.end();
+		//ringDrawProfiler.end();
 #endif
 		
 		// Cube drawing follows sphere without textures.
@@ -236,15 +240,16 @@ int ApplicationController::start() {
 		MVP = Projection * camera->getView() * cubeModel;
 		renderer->uploadUBOData(0, MODEL_MATRIX, sizeof(glm::mat4), 0, &MVP[0]);
 		renderer->uploadUBOData(1, OBJ_COLOR, sizeof(glm::vec4), 0, &cubeColorVec[0]);
-		renderer->drawElements(shapeArray->GetIndexPointerSize(T_CUBE));
+		//renderer->drawElements(shapeArray->GetIndexPointerSize(T_CUBE));
 
 #ifdef _DEBUG
+		// Also that's not best practice
 		if (++frameCount % 1000 == 0) {
-			bufferUpdateProfiler.printResult();
-			cubeDrawProfiler.printResult();
-			sphereDrawProfiler.printResult();
-			cylinderDrawProfiler.printResult();
-			ringDrawProfiler.printResult();
+			//bufferUpdateProfiler.printResult();
+			//cubeDrawProfiler.printResult();
+			//sphereDrawProfiler.printResult();
+			//cylinderDrawProfiler.printResult();
+			//ringDrawProfiler.printResult();
 		}
 #endif
 		renderer->endFrame();

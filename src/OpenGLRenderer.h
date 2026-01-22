@@ -6,6 +6,17 @@
 #include <vector>
 #include <map>
 #include <string>
+
+struct OpenGLBuffer : PersistentBuffer {
+	uint32_t bufferID; 
+	OpenGLBuffer() : PersistentBuffer{}, bufferID{ 0 } {}
+	OpenGLBuffer(uint32_t id, void* ptr, uint64_t size) {
+		bufferID = id;
+		this->mappedPtr = ptr;
+		this->size = size;
+	}
+};
+
 class OpenGLRenderer : public Renderer
 {
 private:
@@ -20,13 +31,15 @@ private:
 	std::map<uint32_t, int> shapeIBOIDmap;
 	std::vector<uint32_t> textures;
 	GLbitfield ssboUsageFlags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
-	std::map<uint32_t, PersistentBuffer> typeToPersistentSSBOMap;
+	//std::map<uint32_t, PersistentBuffer> typeToPersistentSSBOMap;
+	std::map<uint32_t, OpenGLBuffer> typeToPersistentSSBOMap;
 	//std::vector<GLuint> framebuffers;
 public:
 	OpenGLRenderer();
 	~OpenGLRenderer();
 
 	void init(uint16_t windowWidth, uint16_t windowHeight) override;
+	void inline finalizeInit() override {};
 
 	inline GLFWwindow* getWindow() { return window; };
 	void setShader(GLSLShader& shader, int shaderType);
@@ -34,9 +47,9 @@ public:
 	void initShader(const std::string& vertPath, const std::string& fragPath);
 	void loadTexture(const std::string &fileName) override;
 
-	void BindShader(int shaderType = 0);
+	void BindShader(int shaderType = 0) override;
 	void unbindShader();
-	void BindShape(int shapeType);
+	void BindShape(uint16_t shapeType) override;
 	void setViewport(uint16_t x, uint16_t y, uint16_t width, uint16_t height) override;
 
 	void createUBO(uint32_t binding, uint16_t type, uint32_t size);
@@ -52,7 +65,7 @@ public:
 
 	void waitIdle() override;
 
-	void createObjectBuffer(Shape &shape, int32_t index_pointer_size, int32_t normal_pointer_size, float* normals, uint32_t* index_array, std::vector<float> objDataVector) override;
+	void createObjectBuffer(Shape &shape, uint32_t index_pointer_size, uint32_t normal_pointer_size, float* normals, uint32_t* index_array, std::vector<float> objDataVector) override;
 
 	void clear() override;
 	void clear(GLuint framebufferID);

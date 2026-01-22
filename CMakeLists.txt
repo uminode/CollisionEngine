@@ -18,7 +18,8 @@ set(VULKAN_VERSION "${VULKAN_MAJOR_VERSION}${VULKAN_MINOR_VERSION}")
 # =============
 # Slang Library 
 # =============
-set(SLANG_VERSION "2025.19.1")
+#set(SLANG_VERSION "2025.19.1")
+set(SLANG_VERSION "2026.1")
 if(WIN32)
     set(SLANG_OS "windows-x86_64")
 elseif(APPLE)
@@ -197,7 +198,7 @@ target_sources(CollisionEngine PRIVATE
 target_include_directories(CollisionEngine PRIVATE
 	"${VULKAN_INCLUDE_DIR}"    # vulkan.h, glm, spirv headers
 	"${D3D12_INCLUDE}"       # d3dx12.h, dxgi.h
-    "${SLANG_SOURCE_DIR}"  # Slang headers from its own directory
+    "${slang_zip_SOURCE_DIR}"  # Slang headers from its own directory
 	"${spirv_cross_SOURCE_DIR}"
 )
 
@@ -226,7 +227,7 @@ if(WIN32)
 		winmm
 		d3d12
 		dxgi
-		d3dcompiler
+        dxcompiler
 	)
 else()
 	target_link_libraries(CollisionEngine PRIVATE
@@ -258,6 +259,12 @@ if(WIN32)
     add_custom_command(TARGET CollisionEngine POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:slang>
+        $<TARGET_FILE_DIR:CollisionEngine>
+        COMMENT "Copying Slang DLL to output directory"
+    )
+    add_custom_command(TARGET CollisionEngine POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${slang_zip_SOURCE_DIR}/bin/slang-compiler.dll"
         $<TARGET_FILE_DIR:CollisionEngine>
         COMMENT "Copying Slang DLL to output directory"
     )

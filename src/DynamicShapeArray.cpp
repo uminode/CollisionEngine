@@ -93,7 +93,7 @@ void DynamicShapeArray::SetRandomColor(int index, float alpha_value) {
 void DynamicShapeArray::SetColor(int index, float r_value, float g_value, float b_value, float alpha_value) {
 	shapeFactory->SetColor(*shapeArray[index], r_value, g_value, b_value, alpha_value);
 }
-void DynamicShapeArray::setRenderer(OpenGLRenderer* renderer) {
+void DynamicShapeArray::setRenderer(Renderer* renderer) {
 	shapeFactory->setRenderer(renderer);
 }
 

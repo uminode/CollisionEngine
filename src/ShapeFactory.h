@@ -23,7 +23,7 @@
 class ShapeFactory {
 private:
 	std::vector<Shape> Prototypes;
-	OpenGLRenderer* renderer = nullptr; // Deprecated: moved to renderer class
+	Renderer* renderer = nullptr; // Deprecated: moved to renderer class
 	
 	//Normals
 /*
@@ -71,11 +71,11 @@ private:
 
 public:
 	ShapeFactory();
-	void setRenderer(OpenGLRenderer* rend);
+	void setRenderer(Renderer* rend);
 	void InitPrototypes();
 
 	uint32_t GetIndexPointerSize(uint32_t shapeType);
-	int32_t GetNormalPointerSize(int32_t shapeType);
+	uint32_t GetNormalPointerSize(uint32_t shapeType);
 	float* GetNormals(int shapeType);
 
 	void BindShape(const Shape& shape); // Move to Renderer Class

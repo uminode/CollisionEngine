@@ -155,15 +155,20 @@ GLSLShader::~GLSLShader()
 	glDeleteProgram(m_RendererID);
 }
 
-void GLSLShader::Bind() const
-{
-	glUseProgram(m_RendererID);
+uint32_t GLSLShader::Program() const {
+	return m_RendererID;
 }
+// Deprecated. Moved to OpenGLRenderer
+//void GLSLShader::Bind() const
+//{
+//	glUseProgram(m_RendererID);
+//}
 
-void GLSLShader::Unbind() const
-{
-	glUseProgram(0);
-}
+// Deprecated. Moved to OpenGLRenderer
+//void GLSLShader::Unbind() const
+//{
+//	glUseProgram(0);
+//}
 
 void GLSLShader::ParseShader(const std::filesystem::path& filepath) {
 	const auto resolvedPath = ResolveFromExeDir(filepath);

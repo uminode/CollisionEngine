@@ -79,7 +79,7 @@ std::vector<ShaderOutput> SlangCompiler::compile(const std::string& source,
     Slang::ComPtr<slang::ISession> session;
 
     targetDesc.format = target;
-    targetDesc.profile = m_globalSession->findProfile("sm_6_0");
+    targetDesc.profile = m_globalSession->findProfile("sm_6_8");
 
     sessionDesc.targets = &targetDesc;
     sessionDesc.targetCount = 1;
@@ -194,6 +194,10 @@ std::vector<ShaderOutput> SlangCompiler::compile(const std::string& source,
 
         // Store output
         ShaderOutput output;
+        // only store resource bindings on first output
+        if ( 0 == i ) {
+			output.resourceBindings = extractResourceBindings(linkedProgram.get());
+        }
         output.target = target;
         output.entryPointName = entryPoints[i];
         const uint8_t* data = static_cast<const uint8_t*>(codeBlob->getBufferPointer());
@@ -206,66 +210,97 @@ std::vector<ShaderOutput> SlangCompiler::compile(const std::string& source,
     return outputs;
 }
 
-SlangStage SlangCompiler::getSlangStage(const std::string& stage)
-{
-    if (stage == "vertex") return SLANG_STAGE_VERTEX;
-    if (stage == "fragment") return SLANG_STAGE_FRAGMENT;
-    if (stage == "compute") return SLANG_STAGE_COMPUTE;
-    throw std::runtime_error("Unsupported shader stage: " + stage);
-}
 
-// Example usage
-#ifdef SLANG_COMPILER_EXAMPLE
-int main()
-{
-    try
-    {
-        SlangCompiler compiler;
+std::vector<ShaderResourceBinding> SlangCompiler::extractResourceBindings(slang::IComponentType* program) {
+    std::vector<ShaderResourceBinding> bindings;
 
-        // Shader with multiple entry points
-        std::string source = R"(
-            [shader("vertex")]
-            float4 vertexMain(float3 pos : POSITION) : SV_Position
-            {
-                return float4(pos, 1.0);
-            }
-            
-            [shader("fragment")]
-            float4 fragmentMain(float4 pos : SV_Position) : SV_Target
-            {
-                return float4(1.0, 0.0, 0.0, 1.0);
-            }
-        )";
-
-        // Compile both entry points in a single pass
-        std::vector<std::string> entryPoints = { "vertexMain", "fragmentMain" };
-
-        // Get all shaders as GLSL
-        auto glslShaders = compiler.compileToGLSL(source, entryPoints);
-        std::cout << "Compiled " << glslShaders.size() << " GLSL shaders:\n";
-        for (const auto& shader : glslShaders)
-        {
-            std::cout << "\n=== " << shader.entryPointName << " ===\n";
-            std::cout << shader.asText() << "\n";
-        }
-
-        // Get all shaders as SPIR-V
-        auto spirvShaders = compiler.compileToSPIRV(source, entryPoints);
-        std::cout << "\nCompiled " << spirvShaders.size() << " SPIR-V shaders:\n";
-        for (const auto& shader : spirvShaders)
-        {
-            std::cout << shader.entryPointName << ": " << shader.binaryData.size() << " bytes\n";
-        }
-
-        // Single entry point convenience method
-        std::string singleGlsl = compiler.compileToGLSLSingle(source, "vertexMain");
-        std::cout << "\nSingle vertex shader GLSL:\n" << singleGlsl << "\n";
+    if (!program) {
+        throw std::runtime_error("Invalid program for resource binding extraction");
     }
-    catch (const std::exception& e)
-    {
-        std::cerr << "Error: " << e.what() << "\n";
-        return 1;
+    slang::ProgramLayout* programLayout{ program->getLayout() };
+    if (!programLayout) {
+        throw std::runtime_error("Failed to get program layout for resource binding extraction");
     }
-    return 0;
+    slang::TypeLayoutReflection* globalParams{ programLayout->getGlobalParamsTypeLayout() };
+
+    uint32_t fieldCount = globalParams->getFieldCount();
+
+    for (uint32_t i{ 0 }; i < fieldCount; ++i) {
+        slang::VariableLayoutReflection* field{ globalParams->getFieldByIndex(i) };
+        slang::TypeLayoutReflection* typeLayout{ field->getTypeLayout() };
+        slang::TypeReflection* type{ typeLayout->getType() };
+        slang::ParameterCategory category{ typeLayout->getParameterCategory() };
+        ShaderResourceBinding binding;
+        binding.name = field->getName();
+
+        // Get binding information
+        slang::TypeReflection::Kind kind = type->getKind();
+        //uint32_t bindingSpace = static_cast<uint32_t>(field->getOffset(slang::ParameterCategory::RegisterSpace) + field->getOffset(slang::ParameterCategory::SubElementRegisterSpace));
+        switch (kind)
+        {
+        case slang::TypeReflection::Kind::ConstantBuffer:
+        {
+            binding.resourceType = ShaderResourceBinding::ResourceType::ConstantBuffer;
+            binding.binding = static_cast<uint32_t>(field->getOffset(slang::ParameterCategory::ConstantBuffer));
+            binding.set = static_cast<uint32_t>(field->getBindingSpace(slang::ParameterCategory::ConstantBuffer));
+
+            bindings.push_back(binding);
+            break;
+        }
+        case slang::TypeReflection::Kind::Resource:
+        {
+            SlangResourceShape shape = type->getResourceShape();
+            SlangResourceAccess access = type->getResourceAccess();
+            if ((shape & SLANG_RESOURCE_BASE_SHAPE_MASK) == SLANG_STRUCTURED_BUFFER) {
+                if (access == SlangResourceAccess::SLANG_RESOURCE_ACCESS_READ_WRITE) {
+                    binding.resourceType = ShaderResourceBinding::ResourceType::UAV;
+                    binding.binding = static_cast<uint32_t>(field->getOffset(slang::ParameterCategory::UnorderedAccess));
+                    binding.set = static_cast<uint32_t>(field->getBindingSpace(slang::ParameterCategory::UnorderedAccess));
+                }
+                else {
+                    binding.resourceType = ShaderResourceBinding::ResourceType::StructuredBuffer;
+                    binding.binding = static_cast<uint32_t>(field->getOffset(slang::ParameterCategory::ShaderResource));
+                    binding.set = static_cast<uint32_t>(field->getBindingSpace(slang::ParameterCategory::ShaderResource)); 
+                }
+                bindings.push_back(binding);
+            }
+            else if ((shape & SLANG_RESOURCE_BASE_SHAPE_MASK) == SLANG_TEXTURE_2D ||
+                (shape & SLANG_RESOURCE_BASE_SHAPE_MASK) == SLANG_TEXTURE_3D ||
+                (shape & SLANG_RESOURCE_BASE_SHAPE_MASK) == SLANG_TEXTURE_CUBE) {
+                if (access == SlangResourceAccess::SLANG_RESOURCE_ACCESS_READ_WRITE) {
+                    binding.resourceType = ShaderResourceBinding::ResourceType::UAV;
+                    binding.binding = static_cast<uint32_t>(field->getOffset(slang::ParameterCategory::UnorderedAccess));
+                    binding.set = static_cast<uint32_t>(field->getBindingSpace(slang::ParameterCategory::UnorderedAccess));
+                }
+                else {
+                    binding.resourceType = ShaderResourceBinding::ResourceType::Texture;
+                    binding.binding = static_cast<uint32_t>(field->getOffset(slang::ParameterCategory::ShaderResource));
+                    binding.set = static_cast<uint32_t>(field->getBindingSpace(slang::ParameterCategory::ShaderResource));
+                }
+                bindings.push_back(binding);
+                auto samplerOffset = field->getOffset(slang::ParameterCategory::SamplerState);
+                if (samplerOffset >= 0) {
+                    ShaderResourceBinding samplerBinding;
+                    samplerBinding.name = binding.name + "_sampler";
+                    samplerBinding.resourceType = ShaderResourceBinding::ResourceType::Sampler;
+                    samplerBinding.binding = static_cast<uint32_t>(samplerOffset);
+                    samplerBinding.set = static_cast<uint32_t>(field->getBindingSpace(slang::ParameterCategory::SamplerState));
+                    bindings.push_back(samplerBinding);
+                }
+            }
+            break;
+        }
+        case slang::TypeReflection::Kind::SamplerState:
+        {
+            binding.resourceType = ShaderResourceBinding::ResourceType::Sampler;
+            binding.binding = static_cast<uint32_t>(field->getOffset(slang::ParameterCategory::SamplerState));
+            binding.set = static_cast<uint32_t>(field->getBindingSpace(slang::ParameterCategory::SamplerState));
+            bindings.push_back(binding);
+            break;
+        }
+        default:
+            break;
+        }
+    }
+    return bindings;
 }
-#endif

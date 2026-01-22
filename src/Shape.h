@@ -15,8 +15,8 @@ struct objMatrices {
 };
 
 struct Shape {
-	int size = 0;
-	int shapeType = -1;
+	uint32_t size = 0;
+	uint8_t shapeType = 255;
 	float speed[3] = { 0.0f ,0.0f ,0.0f };
 	float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	float center[3] = { 0.f, 0.f, 0.f };

@@ -15,7 +15,7 @@ VSOutput vertexMain(VSInput input)
     output.FragPos = mul(float4(input.position, 1.0), model).xyz;
 
     // Normal
-    output.Normal = mul(normalize(input.normal), normalModel);
+    output.Normal = mul(normalize(input.normal), float3x3(normalModel));
 
     return output;
 }

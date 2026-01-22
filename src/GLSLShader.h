@@ -14,7 +14,6 @@ struct ShaderProgramSource {
 class GLSLShader {
 private:
 	SlangCompiler slangCompiler;
-	std::string m_FilePath2;
 	std::filesystem::path m_FilePath;
 	uint32_t m_RendererID;
 public:
@@ -23,8 +22,12 @@ public:
 	GLSLShader();
 	~GLSLShader();
 
-	void Bind() const;
-	void Unbind() const;
+	uint32_t Program() const;
+
+
+	// Deprecated. Moved to OpenGLRenderer
+	//void Bind() const;
+	//void Unbind() const;
 
 private:
 	std::string ConvertSPIRVToGLSL(

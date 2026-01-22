@@ -13,7 +13,7 @@ VSOutput vertexMain(VSInput input)
     output.FragPos = mul(float4(input.position, 1.0), matrices[index].model).xyz;
 
     // Normal
-    output.Normal = mul(normalize(input.normal), matrices[index].normalModel);
+    output.Normal = mul(normalize(input.normal), float3x3(matrices[index].normalModel));
 
     output.instanceID = index;
     return output;

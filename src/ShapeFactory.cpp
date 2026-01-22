@@ -58,7 +58,7 @@ ShapeFactory::ShapeFactory():cube_indices{
 	InitSphereIndices();
 	InitCylinderIndices();
 }
-void ShapeFactory::setRenderer(OpenGLRenderer* rend) {
+void ShapeFactory::setRenderer(Renderer* rend) {
 	renderer = rend;
 }
 
@@ -122,19 +122,19 @@ void ShapeFactory::AddCircleIndices(std::array<uint32_t, 3 * 4 * CIRCLE_TRIANGLE
 		indices[index++] = offset + i + 1;
 	}
 }
-int32_t ShapeFactory::GetNormalPointerSize(int32_t shapeType) {
+uint32_t ShapeFactory::GetNormalPointerSize(uint32_t shapeType) {
 	switch (shapeType)
 	{
 	case T_CUBE:
-		return 24;
+		return 24u;
 	case T_CYLINDER:
-		return 216;
+		return 216u;
 	case T_SPHERE:
-		return 2109;
+		return 2109u;
 	case T_RING:
 		return 8 * (CIRCLE_VERTEX_NUM - 1) * 3;
 	}
-	return 0;
+	return 0u;
 }
 
 /*
@@ -529,8 +529,8 @@ Shape& ShapeFactory::CreateShapeObject(float * element, int elementSize, int sha
 	tempShape.center[1] = y0;
 	tempShape.center[2] = z0;
 	tempShape.d = d;
-	int index_pointer_size = GetIndexPointerSize(tempShape.shapeType);
-	int32_t normal_pointer_size	= GetNormalPointerSize(tempShape.shapeType);
+	uint32_t index_pointer_size = GetIndexPointerSize(tempShape.shapeType);
+	uint32_t normal_pointer_size	= GetNormalPointerSize(tempShape.shapeType);
 	float* normals = GetNormals(tempShape.shapeType);
 	uint32_t *index_array = GetIndexPointer(tempShape.shapeType);
 

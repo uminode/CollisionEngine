@@ -1,9 +1,8 @@
 #include "OpenGLRenderer.h"
 #include <iostream>
-#define STB_IMAGE_IMPLEMENTATION   
-#include "stb_image.h"
 #include "PathUtils.h"
 #include <filesystem>
+#include "ImageLoader.h"
 
 #ifdef _DEBUG
 void APIENTRY glDebugOutput(GLenum source,
@@ -46,7 +45,8 @@ OpenGLRenderer::~OpenGLRenderer() {
 //loads texture from file
 void OpenGLRenderer::loadTexture(const std::string &fileName)
 {
-	std::filesystem::path resolvedPath = ResolveFromExeDir(fileName);
+	//std::filesystem::path resolvedPath = ResolveFromExeDir(fileName);
+	ImageData image = ImageLoader::load(fileName, 4);
 	uint32_t texture;
 	glGenTextures(1, &texture);
 
@@ -55,9 +55,10 @@ void OpenGLRenderer::loadTexture(const std::string &fileName)
 
 	//Define all 6 faces
 	// load and generate the texture
-	int width, height, nrChannels;
+	int width = image.width, height = image.height, nrChannels = image.channels;
+	uint8_t* data = image.pixels;
 	//unsigned char* data = stbi_load(fileName.c_str(), &width, &height, &nrChannels, STBI_rgb_alpha);
-	unsigned char* data = stbi_load(resolvedPath.string().c_str(), &width, &height, &nrChannels, STBI_rgb_alpha);
+	//unsigned char* data = stbi_load(resolvedPath.string().c_str(), &width, &height, &nrChannels, STBI_rgb_alpha);
 	if (data)
 	{
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -81,7 +82,6 @@ void OpenGLRenderer::loadTexture(const std::string &fileName)
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 0);
 
-	stbi_image_free(data);
 	textures.push_back(texture);
 }
 void OpenGLRenderer::init(uint16_t windowWidth, uint16_t windowHeight) {
@@ -137,7 +137,7 @@ void OpenGLRenderer::init(uint16_t windowWidth, uint16_t windowHeight) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 }
-void OpenGLRenderer::BindShape(int shapeType) {
+void OpenGLRenderer::BindShape(uint16_t shapeType) {
 	if (shapeVAOIDmap.find(shapeType) != shapeVAOIDmap.end()) {
 		glBindVertexArray(shapeVAOIDmap[shapeType]);
 	}
@@ -173,7 +173,7 @@ void OpenGLRenderer::createSSBO(uint32_t binding, uint16_t type, uint32_t size) 
 		if (0 == i) throw std::runtime_error("GPU data upload failed. glMapBufferRange returned null pointer.");
 		ptr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, typeToSSBOSize[type], ssboUsageFlags | GL_MAP_INVALIDATE_BUFFER_BIT);
 	}
-	PersistentBuffer persistentBuffer{ssbo, ptr, size};
+	OpenGLBuffer persistentBuffer{ssbo, ptr, size};
 	typeToPersistentSSBOMap[type] = persistentBuffer;
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
@@ -198,7 +198,7 @@ void OpenGLRenderer::resizeSSBO(uint16_t type, uint32_t newSize) {
 		if (0 == i) throw std::runtime_error("GPU data upload failed. glMapBufferRange returned null pointer.");
 		ptr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, newSize, ssboUsageFlags | GL_MAP_INVALIDATE_BUFFER_BIT);
 	}
-	typeToPersistentSSBOMap[type] = PersistentBuffer{ ssbo, ptr, newSize };
+	typeToPersistentSSBOMap[type] = OpenGLBuffer{ ssbo, ptr, newSize };
 }
 
 void *OpenGLRenderer::getMappedSSBOData(uint16_t type, uint64_t maxSize) {
@@ -231,7 +231,7 @@ void OpenGLRenderer::BindSSBO(uint32_t binding, uint16_t type) {
 	glBindBufferRange(GL_SHADER_STORAGE_BUFFER, binding, typeToSSBOMap[type], 0, typeToSSBOSize[type]);
 }
 
-void OpenGLRenderer::createObjectBuffer(Shape &shape, int32_t index_pointer_size, int32_t normal_pointer_size, float *normals, uint32_t *index_array, std::vector<float> objDataVector) {
+void OpenGLRenderer::createObjectBuffer(Shape &shape, uint32_t index_pointer_size, uint32_t normal_pointer_size, float *normals, uint32_t *index_array, std::vector<float> objDataVector) {
 	unsigned int vao;
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
@@ -261,9 +261,12 @@ void OpenGLRenderer::createObjectBuffer(Shape &shape, int32_t index_pointer_size
 	shapeVAOIDmap[shape.shapeType] = vao;
 	shapeVBOIDmap[shape.shapeType] = buffer_id;
 	shapeIBOIDmap[shape.shapeType] = ibo;
+#ifdef _DEBUG
 	std::cout << "buffer created id's are:" << vao << ", " << buffer_id << ", " << ibo << std::endl;
+#endif
 }
 void OpenGLRenderer::clear() {
+	glClearColor(.1f, .1f, .1f, 1.f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 void OpenGLRenderer::clear(GLuint framebufferID) {
@@ -276,7 +279,7 @@ void OpenGLRenderer::render() {
 }
 
 void OpenGLRenderer::renderBatch(int16_t shapeType, uint32_t ib_size, uint32_t amount, uint32_t baseInstance) {
-	BindShape(shapeType);
+	//BindShape(shapeType);
 	glDrawElementsInstancedBaseInstance(GL_TRIANGLES, ib_size, GL_UNSIGNED_INT, nullptr, amount, baseInstance);
 }
 void OpenGLRenderer::drawElements(uint32_t ib_size) {
@@ -287,26 +290,21 @@ void OpenGLRenderer::initShader(const std::string& path) {
 	GLSLShader* aShader = new GLSLShader{ path };
 
 	shaders.push_back(aShader);
-	shaders.back()->Bind();
 }
 void OpenGLRenderer::initShader(const std::string& vertPath, const std::string& fragPath) {
 	GLSLShader* aShader = new GLSLShader{ vertPath, fragPath };
-	//shaders.push_back(aShader);
-	//shaders.back().Bind();
+
 	shaders.push_back(aShader);
-	shaders.back()->Bind();
 }
 void OpenGLRenderer::setShader(GLSLShader &shader, int shaderType) {
 	//shaders.at(shaderType) = shader;
 	shaders.at(shaderType) = &shader;
-	shader.Bind();
 }
 void OpenGLRenderer::setViewport(uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
 	glViewport(x, y, width, height);
 }
 void OpenGLRenderer::BindShader(int shaderType) {
-	//shaders.at(shaderType).Bind();
-	shaders.at(shaderType)->Bind();
+	glUseProgram(shaders.at(shaderType)->Program());
 }
 void OpenGLRenderer::unbindShader() {
 	glUseProgram(0);

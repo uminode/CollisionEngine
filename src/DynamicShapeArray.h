@@ -42,7 +42,7 @@ public:
 	//Setters
 	void SetColor(int index, float r_value, float g_value, float b_value, float alpha_value = 1.0f);
 	void SetRandomColor(int index, float alpha_value = 1.0f);
-	void setRenderer(OpenGLRenderer* renderer);
+	void setRenderer(Renderer* renderer);
 
 
 private:
